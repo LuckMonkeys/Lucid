@@ -31,17 +31,17 @@ def main(args):
 
     trace = utils.trace_parser(trace_df)
 
-    if args.scheduler in utils.PROFILER_ENABLED_SCHEDULERS and not args.sweep:
+    if args.scheduler in utils.PROFILER_ENABLED_SCHEDULERS and not args.sweep: # why sweep here?
         if args.profiler_auto:
             vc_dict, prof_scale, prof_time, prof_factor = utils.profiler_config(args.experiment_name, vc_dict)
-            trace = utils.trace_profile(trace, prof_scale, prof_time, prof_factor, args.placer, log_dir, logger, start_ts)
+            trace = utils.trace_profile(trace, prof_scale, prof_time, prof_factor, args.placer, log_dir, logger, start_ts, args.node_scaling_num)
         else:
             # NOTE: NOT update vc_dict for manual configuration
             prof_vc = utils.check_profiler_scale_available(
                 args.experiment_name, args.profiler_scale, vc_dict, prof_locate_vc=None
             )
             trace = utils.trace_profile(
-                trace, args.profiler_scale, args.profiler_time, args.profiler_factor, args.placer, log_dir, logger, start_ts
+                trace, args.profiler_scale, args.profiler_time, args.profiler_factor, args.placer, log_dir, logger, start_ts, args.node_scaling_num
             )
             return
         logger.info(f"Profiling Execution Time: {round(time.perf_counter() - code_start, 2)}s")
@@ -72,9 +72,11 @@ def main(args):
                     all_args_list.append(
                         (trace, CLUSTER.vc_list[i], args.placer, log_dir, policy, logger, start_ts, estimator, updater)
                     )
-            else:
+            elif policy in ["fifo", "sjf", "srtf", "tiresias"]:
                 for i in range(len(vc_dict)):
                     all_args_list.append((trace, CLUSTER.vc_list[i], args.placer, log_dir, policy, logger, start_ts))
+            else:
+                raise NotImplementedError(f"Scheduler {args.scheduler} Not Implemented")
     else:
         if args.processes is None:
             process_num = min(len(CLUSTER.vc_list), os.cpu_count())
@@ -87,13 +89,15 @@ def main(args):
                 all_args_list.append(
                     (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator)
                 )
-            elif args.scheduler == "lucid":
+            elif args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-node-scale"]:
                 all_args_list.append(
                     (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator, updater)
                 )
-            else:
+            elif args.scheduler in ["fifo", "sjf", "srtf", "tiresias"]:
                 all_args_list.append((trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts))
-
+            else:
+                raise NotImplementedError(f"Scheduler {args.scheduler} Not Implemented")
+            
     with multiprocessing.Pool(processes=process_num) as p:
         results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
         results = [result.get() for result in results]
@@ -102,6 +106,9 @@ def main(args):
         for policy in utils.get_sweep_schedulers():
             utils.cluster_concatenate(policy, args.placer, log_dir, args.trace_dir)
     else:
+        if args.scheduler == "lucid-node-scale":
+            args.scheduler = f"lucid-node-scale-{args.node_scaling_num}"
+
         utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir)
         utils.cluster_analysis(args.placer, log_dir, args.trace_dir)
 
@@ -131,14 +138,19 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--profiler-auto", default=1, type=int, help="Use default profiling setting, disable below (time, scale, factor)."
+        "--profiler_auto", default=1, type=int, help="Use default profiling setting, disable below (time, scale, factor)."
     )
+    
+    parser.add_argument(
+        "--node_scaling_num", default=1, type=int, help="The node scaling number for the profiler. 0 means no scaling. "
+    )
+    
     # For ablation study
     parser.add_argument("--profiler-time", default=500, type=int, help="Time limit in profiler, unit: second")
     parser.add_argument("--profiler-scale", default=6, type=int, help="Number of nodes applied in profiler")
     parser.add_argument("--profiler-factor", default=6, type=int, help="Maximum GPU number to be profiled = factor x scale")
 
-    parser.add_argument("--colocate", default=0, type=int, help="Whether to enable GPU sharing")
+    # parser.add_argument("--colocate", default=0, type=int, help="Whether to enable GPU sharing")
     parser.add_argument("--pollux-idx", default=None, type=int, help="Index of Pollux Trace")
     parser.add_argument("--sweep", action="store_true", default=False, help="Run All Scheduler Policies in One Time")
     parser.add_argument(

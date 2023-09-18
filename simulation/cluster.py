@@ -68,11 +68,15 @@ class VC:
                 # temp_node_num = temp_node_num + 1000
                 # raise ValueError("Temp node num already exists")
                 return False
+        for i in range(change_node_num):
+            temp_node_num = i + self.temp_node_num_base
             node = Node(temp_node_num, self._num_gpus_per_node, self._num_gpus_per_node)
             self.node_list.append(node)
+
         self.node_num = self.node_num + change_node_num
         self.total_gpus = self._num_gpus_per_node * self.node_num
         self.total_cpus = self._num_cpus_per_node * self.node_num
+        return True
 
     def exchange_node_status(self, idle_node, i):
         # Just for simple simulation implementation in some rare cases.
@@ -89,13 +93,33 @@ class VC:
             return False  # Not enough idle nodes
         idle_node_list.sort(key=lambda x: x.node_name, reverse=True)
         idle_node_list = idle_node_list[: abs(change_node_num)]
-        for i in range(abs(change_node_num)):
-            if idle_node_list[i].node_name < self.temp_node_num_base and force_same_node and self.has_temp_node:
-                self.exchange_node_status(idle_node_list[i], i)
-                idle_node_list = self.idle_node_list()
-                idle_node_list.sort(key=lambda x: x.node_name, reverse=True)
-                assert idle_node_list[0].node_name >= self.temp_node_num_base
-            to_remove_node = idle_node_list[i]
+        
+        idle_node_name_list = [i.node_name for i in idle_node_list]
+        node_great_than_temp = list(filter(lambda x: x.node_name >= self.temp_node_num_base, self.node_list))
+        node_great_than_temp_name = [i.node_name for i in node_great_than_temp]
+        node_great_than_temp_name_exclude_idle = list(filter(lambda x: x not in idle_node_name_list,  node_great_than_temp_name))
+
+
+        for i, to_remove_node in enumerate(idle_node_list):
+            if to_remove_node.node_name < self.temp_node_num_base and force_same_node and self.has_temp_node:
+                self.exchange_node_status(to_remove_node, node_great_than_temp_name_exclude_idle[0] - self.temp_node_num_base)
+                node_great_than_temp_name_exclude_idle.remove(node_great_than_temp_name_exclude_idle[0])
+
+                
+
+        # for i in range(abs(change_node_num)):
+
+        #     if idle_node_list[i].node_name < self.temp_node_num_base and force_same_node and self.has_temp_node:
+        #         self.exchange_node_status(idle_node_list[i], i)
+        #         idle_node_list = self.idle_node_list() ####
+        #         idle_node_list.sort(key=lambda x: x.node_name, reverse=True)
+        #         assert idle_node_list[0].node_name >= self.temp_node_num_base
+            
+        #     else:
+        #         node_great_than_temp.remove(idle_node_list[i].node_name)
+            
+            
+            # to_remove_node = idle_node_list[i] #error for change_node_num < -1
             self.node_list.remove(to_remove_node)
         self.has_temp_node = True
         assert len(self.node_list) == self.node_num + change_node_num
@@ -106,9 +130,9 @@ class VC:
 
     def update_vc_node(self, change_node_num, force_same_node=True):
         if change_node_num > 0:
-            self.add_new_node(change_node_num, force_same_node)
+            return self.add_new_node(change_node_num, force_same_node)
         elif change_node_num < 0:
-            self.remove_idle_node(change_node_num, force_same_node)
+            return self.remove_idle_node(change_node_num, force_same_node)
         else:
             raise ValueError("`change_node_num` should not be 0")
 

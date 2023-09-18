@@ -13,6 +13,12 @@ class LeastGPUFirstProfiler(Profiler):
         self.node_scaling_time = 0
         self.node_scaling_num = 1
 
+    def set_prof_nodescale(self,  node_scaling_num):
+        self.node_scaling_num = node_scaling_num
+        if node_scaling_num == 0:
+            self.enable_scaling = False
+            self.scaling_recorder(self.node_scaling_num)
+
     def profile(self):
         prev_index = 0
 
@@ -68,9 +74,9 @@ class LeastGPUFirstProfiler(Profiler):
             if self.enable_scaling:
                 # Scale-Up
                 if self.time % 10 == 0 and len(self.que_list) > 10 and self._vc.node_num == self._vc.base_node_num:
-                    self._vc.update_vc_node(change_node_num=self.node_scaling_num)
-                    self.node_scaling_time = self.time
-                    self.scaling_recorder(self.node_scaling_num)
+                    if self._vc.update_vc_node(change_node_num=self.node_scaling_num):
+                        self.node_scaling_time = self.time
+                        self.scaling_recorder(self.node_scaling_num)
 
                 # Scale-Down
                 if (
@@ -81,9 +87,9 @@ class LeastGPUFirstProfiler(Profiler):
                     and self._vc.check_node_inside_idle_vc(self._vc.temp_node_num_base)
                 ):
                     if self.check_future_cluster_throughput() <= self.gpu_limit * 5:
-                        self._vc.update_vc_node(change_node_num=-1 * self.node_scaling_num)
-                        self.node_scaling_time = self.time
-                        self.scaling_recorder(-1 * self.node_scaling_num)
+                        if self._vc.update_vc_node(change_node_num=-1 * self.node_scaling_num):
+                            self.node_scaling_time = self.time
+                            self.scaling_recorder(-1 * self.node_scaling_num)
 
             """4. Log & Result Recorder"""
             if self.time % 10000 == 0:

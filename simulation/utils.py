@@ -11,13 +11,15 @@ from policy import (
     ShortestRemainingTimeFirst,
     QuasiShortestServiceFirst,
     Lucid,
+    Lucid_alwaysgpu,
+    Lucid_node_scale,
     Tiresias,
 )
 from profiler import LeastGPUFirstProfiler
 
 sys.path.append("..")
 
-PROFILER_ENABLED_SCHEDULERS = ["lucid"]
+PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu", "lucid-node-scale"]
 
 
 def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
@@ -28,18 +30,29 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
     elif policy == "srtf":
         scheduler = ShortestRemainingTimeFirst(trace, vc, placement, log_dir, logger, start_ts)
     elif policy == "qssf":
-        scheduler = QuasiShortestServiceFirst(trace, vc, placement, log_dir, logger, start_ts, args[0])
+        estimator = args[0]
+        scheduler = QuasiShortestServiceFirst(trace, vc, placement, log_dir, logger, start_ts, estimator)
     elif policy == "lucid":
-        scheduler = Lucid(trace, vc, placement, log_dir, logger, start_ts, args[0], args[1])
+        estimator, updater = args[0], args[1]
+        scheduler = Lucid(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    elif policy == "lucid-alwaysgpu":
+        estimator, updater = args[0], args[1]
+        scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    elif policy == "lucid-node-scale":
+        estimator, updater = args[0], args[1]
+        scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
     elif policy == "tiresias":
         scheduler = Tiresias(trace, vc, placement, log_dir, logger, start_ts)
+    else:
+        raise ValueError(f"Invalid Scheduler Name {policy}")
     scheduler.simulate()
     logger.info(f"Finish {vc.vc_name}")
     return True
 
 
-def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts):
+def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts, node_scaling_num):
     profiler = LeastGPUFirstProfiler(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts)
+    profiler.set_prof_nodescale(node_scaling_num=node_scaling_num)
     profiler.profile()
     trace.reset_trace()
     logger.info("Finish Profiling")
@@ -47,10 +60,11 @@ def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir,
 
 
 def get_available_schedulers():
-    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias"]
+    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-node-scale"]
 
 
 def get_sweep_schedulers():
+    # return ["fifo", "sjf", "srtf", "qssf", "tiresias", "lucid"]
     return ["fifo", "sjf", "srtf", "qssf", "tiresias"]
 
 
@@ -404,7 +418,7 @@ def profiler_config(experiment_name, vc_dict):
     scale, time, factor = profile_scale[cluster], profile_time[cluster], profile_factor[cluster]
     if cluster == "Philly":
         vc_dict["philly"] -= scale
-    elif cluster == "Venus":
+    elif cluster == "Venus": # why subtract 1 for only these two vc?
         vc_dict["vc8Gr"] -= 1
         vc_dict["vcefl"] -= 1
         # vc_dict["vcYVn"] -= 1  # For elastic scaling

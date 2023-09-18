@@ -1,5 +1,7 @@
 import random
 import operator
+import os
+import pandas as pd
 from .policy import Policy
 
 
@@ -209,3 +211,26 @@ class Lucid(Policy):
             self.time += 1
 
         self.log_recorder(self._name)
+
+class Lucid_alwaysgpu(Lucid):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
+        super(Lucid_alwaysgpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        self._name = "lucid-alwaysgpu"
+    
+    def check_pas(self):
+        return 1
+
+class Lucid_node_scale(Lucid):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
+        super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+
+        self.profnode_scaling_num = None
+        self.get_nodescale_num()
+        self._name = f"lucid-node-scale-{self.profnode_scaling_num}"
+
+    def get_nodescale_num(self):
+        self.profnode_scaling_num  = abs(self.profile_scaling_df["scaling_num"].values[0])
+        if self.profnode_scaling_num == 0:
+            self.vc_echo_scaling = False
+
+    
