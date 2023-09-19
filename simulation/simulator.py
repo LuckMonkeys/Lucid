@@ -16,6 +16,9 @@ def main(args):
     code_start = time.perf_counter()
 
     """Logger Setting"""
+    
+    args.log_dir = f"{args.log_dir}/vc_node_factor_{args.vc_nodes_factor}"
+    
     log_dir = f"{args.log_dir}/{args.experiment_name}"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir + "/logfile")
@@ -24,7 +27,10 @@ def main(args):
     """Infrastructure & Trace Initialization"""
     vc_df = pd.read_csv(args.trace_dir + "/vc_config.csv", index_col=0)
     vc_dict = vc_df.to_dict()["num"]
-
+    
+    vc_minimal_nodes = utils.get_minimal_nodes(args.experiment_name)
+    vc_dict = {k: max(int(v * args.vc_nodes_factor), vc_minimal_nodes[k]) for k, v in vc_dict.items()}
+    
     trace_df, start_ts = utils.get_trace(args.experiment_name, args.trace_dir, read_full=True, idx=args.pollux_idx)
 
     logger.info(f"Total Job Number in Cluster Training: {len(trace_df)}")
@@ -164,6 +170,8 @@ if __name__ == "__main__":
     parser.add_argument("--num_gpus_per_node", type=int, default=8, help=("Number of GPUs per node"))
     parser.add_argument("--num_cpus_per_node", type=int, default=96, help=("Number of CPU cores per node"))
 
+    parser.add_argument("--vc_nodes_factor", type=float, default=1.0, help=("Number of nodes per VC = round(factor x original_num"))
+    
     args = parser.parse_args()
 
     main(args)

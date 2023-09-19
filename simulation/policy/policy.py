@@ -74,7 +74,8 @@ class Policy:
         # # self.time_df = self.time_df.set_index("time")
 
     def get_profile_scaling_data(self, cluster):
-        self.profile_scaling_df = pd.read_csv(f"log/{cluster}_Sept/profvc/profvc_scaling.csv")
+        # self.profile_scaling_df = pd.read_csv(f"log/{cluster}_Sept/profvc/profvc_scaling.csv")
+        self.profile_scaling_df = pd.read_csv(f"{self._log_dir}/profvc/profvc_scaling.csv")
         self.scaling_time_list = self.profile_scaling_df["time"].astype("int").tolist()
         assert self.profile_scaling_df["scaling_num"].sum() == 0 #why summation is zero
         if cluster == "Venus" and self._vc_name == "vcYVn":

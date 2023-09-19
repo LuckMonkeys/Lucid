@@ -50,7 +50,7 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
     return True
 
 
-def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts, node_scaling_num):
+def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts, node_scaling_num=1):
     profiler = LeastGPUFirstProfiler(trace, scale, time_limit, profiler_factor, placement, log_dir, logger, start_ts)
     profiler.set_prof_nodescale(node_scaling_num=node_scaling_num)
     profiler.profile()
@@ -441,6 +441,13 @@ def check_profiler_scale_available(experiment_name, scale, vc_dict, prof_locate_
         return vc
     else:
         raise ValueError("Profile Node Scale Exceed VC Capacity")
+
+def get_minimal_nodes(experiment_name):
+   if experiment_name == "Venus_Sept":
+        return {'vcEwI': 4, 'vcWoR': 2, 'vcHvQ': 4, 'vcvGl': 18, 'vc8Gr': 3+1, 'vcKeu': 5, 'vcKrE': 1, 'vcYVn': 5, 'vchbv': 4, 'vcLTP': 2, 'vchA3': 1, 'vcJsw': 20, 'vcefl': 1, 'vcvlY': 2, 'vcgkz': 1}
+
+   else:
+       raise NotImplementedError("The minimal nodes for other experiment are not provided currently.")
 
 
 if __name__ == "__main__":
