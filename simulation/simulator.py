@@ -6,7 +6,7 @@ import multiprocessing
 import pandas as pd
 import utils
 import cluster
-from estimator import CombinedEstimator, PhillyEstimator
+from estimator import CombinedEstimator, PhillyEstimator, MLaasEstimator
 from updater import ColocateUpdater
 
 os.environ["NUMEXPR_MAX_THREADS"] = str(os.cpu_count())
@@ -59,8 +59,14 @@ def main(args):
 
     if "Philly" in args.experiment_name:
         estimator = PhillyEstimator(args)
-    else:
+    elif "Venus" in args.experiment_name:
         estimator = CombinedEstimator(args)
+    elif "MLaas" in args.experiment_name:
+        estimator = MLaasEstimator(args)
+    else:
+        raise NotImplementedError(f"The Estimator for dataset {args.experiment_name} is not implemented.")
+        
+    
 
     """
     Sweep ON: Run All Scheduler Policies in One Experiment
@@ -95,7 +101,7 @@ def main(args):
                 all_args_list.append(
                     (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator)
                 )
-            elif args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-node-scale"]:
+            elif args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-node-scale", "lucid-nogpu"]:
                 all_args_list.append(
                     (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator, updater)
                 )

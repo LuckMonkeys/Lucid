@@ -220,6 +220,14 @@ class Lucid_alwaysgpu(Lucid):
     def check_pas(self):
         return 1
 
+class Lucid_nogpu(Lucid):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
+        super(Lucid_nogpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        self._name = "lucid-nogpu"
+    
+    def check_pas(self):
+        return 0
+
 class Lucid_node_scale(Lucid):
     def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
         super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)

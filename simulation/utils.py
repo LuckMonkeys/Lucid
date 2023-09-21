@@ -12,6 +12,7 @@ from policy import (
     QuasiShortestServiceFirst,
     Lucid,
     Lucid_alwaysgpu,
+    Lucid_nogpu,
     Lucid_node_scale,
     Tiresias,
 )
@@ -19,7 +20,7 @@ from profiler import LeastGPUFirstProfiler
 
 sys.path.append("..")
 
-PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu", "lucid-node-scale"]
+PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale"]
 
 
 def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
@@ -38,6 +39,9 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
     elif policy == "lucid-alwaysgpu":
         estimator, updater = args[0], args[1]
         scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    elif policy == "lucid-nogpu":
+        estimator, updater = args[0], args[1]
+        scheduler = Lucid_nogpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
     elif policy == "lucid-node-scale":
         estimator, updater = args[0], args[1]
         scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
@@ -60,7 +64,7 @@ def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir,
 
 
 def get_available_schedulers():
-    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-node-scale"]
+    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale"]
 
 
 def get_sweep_schedulers():
@@ -373,6 +377,8 @@ def cluster_analysis(placer, log_dir, dir):
     # for i in get_available_schedulers():
     #     prefix = f"{i}_{placer}"
     #     prefix_list.append(prefix)
+    
+    filter_profile_job = False
 
     jct_avg = pd.DataFrame()
     que_avg = pd.DataFrame()
@@ -380,22 +386,39 @@ def cluster_analysis(placer, log_dir, dir):
         for vc in vcs:
             vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_log.csv")
             # vc_log = vc_log[vc_log['submit_time'] > ignore_warm_up]
-            jct_avg.at[vc, prefix] = vc_log["jct"].mean()
+            if filter_profile_job:
+                jct_avg.at[vc, prefix] = vc_log[(vc_log["jct"]>200) & (vc_log["gpu_num"]<=8) ]["jct"].mean()
+            else:
+                jct_avg.at[vc, prefix] = vc_log["jct"].mean()
+                
             que_avg.at[vc, prefix] = vc_log["queue"].mean()
 
     jct_avg = jct_avg.astype(int)
     que_avg = que_avg.astype(int)
-    jct_avg.to_csv(f"{log_dir}/jct_avg_{placer}.csv")
+    if filter_profile_job:
+        jct_avg.to_csv(f"{log_dir}/jct_avg_{placer}_execludeProfileGPU.csv")
+    else:
+        jct_avg.to_csv(f"{log_dir}/jct_avg_{placer}.csv")
     que_avg.to_csv(f"{log_dir}/que_avg_{placer}.csv")
 
 
+def get_filled_trace(trace_dir, base):
+    df = pd.read_csv(f"{trace_dir}/filled.csv")
+    df = df[base:]
+    start_ts = df.iloc[0]['submit_time']
+    return df, start_ts
+
 def get_trace(experiment_name, trace_dir, read_full, idx=None):
     if "Philly" in experiment_name:
-        trace_range = ("2017-10-01 00:00:00", "2017-10-07 23:59:00")
-        trace_df, start_ts = trace_philly_process(trace_dir, trace_range, read_full)
+        # trace_range = ("2017-10-01 00:00:00", "2017-10-07 23:59:00")
+        # trace_df, start_ts = trace_philly_process(trace_dir, trace_range, read_full)
+        trace_df, start_ts = get_filled_trace(trace_dir, 1926)
+    elif "MLaas" in experiment_name:
+        trace_df, start_ts = get_filled_trace(trace_dir, 15635)
+        
     elif "Pollux" in experiment_name:
         trace_df, start_ts = trace_pollux_process(trace_dir, idx)
-    else:
+    elif "Venus" in experiment_name:
         if "Sept" in experiment_name:
             trace_range = ("2020-09-01 00:00:00", "2020-09-26 23:59:00")
             trace_df, start_ts = trace_process(trace_dir, trace_range, read_full)
@@ -404,24 +427,31 @@ def get_trace(experiment_name, trace_dir, read_full, idx=None):
             trace_df, start_ts = trace_process(trace_dir, trace_range, read_full)
         else:
             raise ValueError
+    else:
+        raise ValueError(f"Experiment {experiment_name} is not support or correct.")
 
     return trace_df, start_ts
 
 
 def profiler_config(experiment_name, vc_dict):
     cluster = experiment_name.split("_")[0]
-    profile_scale = {"Venus": 2, "Philly": 2}
-    profile_time = {"Venus": 200, "Philly": 80}
-    profile_factor = {"Venus": 4, "Philly": 2}
+    profile_scale = {"Venus": 2, "Philly": 2, "MLaas":25}
+    profile_time = {"Venus": 200, "Philly": 80, "MLaas":200}
+    profile_factor = {"Venus": 4, "Philly": 2, "MLaas": 8}
 
     # Basic Config
     scale, time, factor = profile_scale[cluster], profile_time[cluster], profile_factor[cluster]
     if cluster == "Philly":
-        vc_dict["philly"] -= scale
+        # vc_dict["philly"] -= scale
+        vc_dict["vc8Gr"] -= 1
+        vc_dict["vcefl"] -= 1
     elif cluster == "Venus": # why subtract 1 for only these two vc?
         vc_dict["vc8Gr"] -= 1
         vc_dict["vcefl"] -= 1
         # vc_dict["vcYVn"] -= 1  # For elastic scaling
+    elif cluster == "MLaas": # why subtract 1 for only these two vc?
+        vc_dict["vc8Gr"] -= 1
+        vc_dict["vcefl"] -= 1
     return vc_dict, scale, time, factor
 
 
@@ -446,6 +476,10 @@ def get_minimal_nodes(experiment_name):
    if experiment_name == "Venus_Sept":
         return {'vcEwI': 4, 'vcWoR': 2, 'vcHvQ': 4, 'vcvGl': 18, 'vc8Gr': 3+1, 'vcKeu': 5, 'vcKrE': 1, 'vcYVn': 5, 'vchbv': 4, 'vcLTP': 2, 'vchA3': 1, 'vcJsw': 20, 'vcefl': 1, 'vcvlY': 2, 'vcgkz': 1}
 
+   elif experiment_name == "Philly":
+        return {'vcEwI': 4, 'vcWoR': 4, 'vcHvQ': 4, 'vcvGl': 4, 'vc8Gr': 2+1, 'vcKeu': 4, 'vcKrE': 2, 'vcYVn': 4, 'vchbv': 1, 'vcLTP': 4, 'vchA3': 4, 'vcJsw': 4, 'vcefl': 2, 'vcvlY': 4, 'vcgkz': 1}
+   elif experiment_name == "MLaas":
+       return {'vcEwI': 25, 'vcWoR': 25, 'vcHvQ': 25, 'vcvGl': 25, 'vc8Gr': 25+1, 'vcKeu': 25, 'vcKrE': 25, 'vcYVn': 25, 'vchbv': 25, 'vcLTP': 25, 'vchA3': 25, 'vcJsw': 25, 'vcefl': 25, 'vcvlY': 25, 'vcgkz': 13}
    else:
        raise NotImplementedError("The minimal nodes for other experiment are not provided currently.")
 
