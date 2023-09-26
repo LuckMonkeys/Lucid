@@ -46,6 +46,8 @@ class Policy:
         self.submit_time_list = None
 
         self.vc_echo_scaling = False
+        self.colocation_count = 0 
+        self.colo_df_current = None 
 
     def init_placer(self):
         if self._placement == "consolidate":
@@ -60,6 +62,7 @@ class Policy:
         return self.placer.place(job)
 
     def colocate_job_placer(self, job, target_job, gutil, gmem):
+        self.colocation_count += 1
         return self.colocate_placer.colcoate_place(job, target_job, gutil, gmem)
 
     def get_colocate_data(self):
@@ -81,15 +84,18 @@ class Policy:
         if cluster == "Venus" and self._vc_name == "vcYVn":
             self.vc_echo_scaling = True
 
-    def check_future_cluster_throughput(self):
+    def check_future_cluster_throughput(self, metric='pred_gpu_job'):
+        # import pdb; pdb.set_trace() 
         if len(self.time_df) == 0:
             return 10
         else:
             self.time_df = self.time_df[self.time_df["time"] > self.time]
             if len(self.time_df) >= 6:
-                return self.time_df.head()["pred_gpu_job"].mean()
+                # return self.time_df.head(n=6)["pred_gpu_job"].mean()
+                return self.time_df.head(n=6)[metric].mean()
             else:
-                return self.time_df["pred_gpu_job"].mean()
+                # return self.time_df.head(n=6)[metric].mean()
+                return self.time_df[metric].mean()
 
     def ckpt_overhead(self, job):
         """Preemption Overhead Note

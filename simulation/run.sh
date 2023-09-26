@@ -13,12 +13,13 @@
 # vc_nodes_factor=(0.5 1.5 2.0 2.5 3.0)
 # vc_nodes_factor=(1.5 2.0 2.5 3.0)
 # vc_nodes_factor=(10.0 20.0 30.0)
-vc_nodes_factor=(0.9 0.7)
+vc_nodes_factor=(1 1.5 2.0 )
+# vc_nodes_factor=(1)
 
 for factor in "${vc_nodes_factor[@]}"
 do
     python simulator.py -s lucid --vc_nodes_factor=$factor
-    python simulator.py -s lucid-alwaysgpu --vc_nodes_factor=$factor
+    python simulator.py -s  lucid-alwaysgpu --vc_nodes_factor=$factor
 done
 
 

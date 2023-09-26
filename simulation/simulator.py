@@ -103,7 +103,12 @@ def main(args):
                 all_args_list.append((trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts))
             else:
                 raise NotImplementedError(f"Scheduler {args.scheduler} Not Implemented")
-            
+    # for i in range(len(all_args_list)): 
+    #     result = utils.simulate_vc(*all_args_list[i])
+    
+    
+    
+    
     with multiprocessing.Pool(processes=process_num) as p:
         results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
         results = [result.get() for result in results]
