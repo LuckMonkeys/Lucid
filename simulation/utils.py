@@ -34,17 +34,17 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
         estimator = args[0]
         scheduler = QuasiShortestServiceFirst(trace, vc, placement, log_dir, logger, start_ts, estimator)
     elif policy == "lucid":
-        estimator, updater = args[0], args[1]
-        scheduler = Lucid(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "lucid-alwaysgpu":
-        estimator, updater = args[0], args[1]
-        scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "lucid-nogpu":
-        estimator, updater = args[0], args[1]
-        scheduler = Lucid_nogpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_nogpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "lucid-node-scale":
-        estimator, updater = args[0], args[1]
-        scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "tiresias":
         scheduler = Tiresias(trace, vc, placement, log_dir, logger, start_ts)
     else:

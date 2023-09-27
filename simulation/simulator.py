@@ -103,13 +103,18 @@ def main(args):
                 )
             elif args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-node-scale", "lucid-nogpu"]:
                 all_args_list.append(
-                    (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator, updater)
+                    (trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts, estimator, updater, args.learning_method)
                 )
             elif args.scheduler in ["fifo", "sjf", "srtf", "tiresias"]:
                 all_args_list.append((trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts))
             else:
                 raise NotImplementedError(f"Scheduler {args.scheduler} Not Implemented")
-            
+    # for i in range(len(all_args_list)): 
+    #     result = utils.simulate_vc(*all_args_list[i])
+    #     exit(0)
+    
+    
+    
     with multiprocessing.Pool(processes=process_num) as p:
         results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
         results = [result.get() for result in results]
@@ -177,6 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_cpus_per_node", type=int, default=96, help=("Number of CPU cores per node"))
 
     parser.add_argument("--vc_nodes_factor", type=float, default=1.0, help=("Number of nodes per VC = round(factor x original_num"))
+    parser.add_argument("--learning_method", type=str, default='perfect', help=("learning method for colocate prediction"))
     
     args = parser.parse_args()
 
