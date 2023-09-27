@@ -9,13 +9,25 @@ GPU_MEMORY_LIMITATION = 24576  # RTX 3090 24GB Memory for our benchmarking
 
 
 class Lucid(Policy):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
         super(Lucid, self).__init__(trace, vc, placement, log_dir, logger, start_ts)
         # import pdb; pdb.set_trace() 
         self.estimator = estimator
         self.updater = updater
         self._name = "lucid"
-
+        
+        self.perfect_colocate_analysis = False 
+        self.learning_fixed_colocate_analysis = False 
+        self.continue_learning_colocate_analysis = False 
+        self.learning_method = learning_method 
+        
+        if learning_method == 'perfect': 
+            self.perfect_colocate_analysis = True 
+        elif learning_method == 'fixed': 
+            self.learning_fixed_colocate_analysis = True 
+        elif learning_method == 'continue': 
+            self.continue_learning_colocate_analysis = True 
+            
         self.enable_colocate()
         self.adaptive_colocate = 0
         self.obtain_workload_estimates()
@@ -31,43 +43,110 @@ class Lucid(Policy):
             if job["toskip"] == 0:
                 job["priority"] = estimate[estimate["job_id"] == job["job_id"]]["priority"].iloc[0] * job["gpu_num"]
 
+    def is_pair_sharing(self, jobA, jobB):
+        if jobA['submit_time'] + jobA['duration'] > jobB['submit_time']:
+            return True
+        return False 
+
+
+
+    def query_speed(self, trail, colo):
+        m, d, b, a = trail["model"], trail["dataset"], trail["batchsize"], trail["amp"]
+        info1 = colo.query("model1 == @m and batchsize1 == @b and dataset1 == @d and amp1 == @a")
+        info2 = colo.query("model2 == @m and batchsize2 == @b and dataset2 == @d and amp2 == @a")
+
+        speed1, len1, speed2, len2 = 0, len(info1), 0, len(info2)
+        if len1 > 0:
+            speed1 = info1["speed1"].sum()
+        if len2 > 0:
+            speed2 = info2["speed2"].sum()
+
+        avg = (speed1 + speed2) / max(len1 + len2, 1)
+        return round(avg, 3)
+
+
     def obtain_colocate_analysis(self):
         self.get_colocate_data()
         df = self.colo_df
-        self.init_colocate_analysis = False 
-        self.learning_fixed_colocate_analysis = False 
-        self.continue_learning_colocate_analysis = False 
+        colocate_df_gt = pd.read_csv("data/colocate_info.csv")
         
-        self.init_colocate_analysis = True 
 
-        if self.init_colocate_analysis: 
+        if self.perfect_colocate_analysis: 
              for job in self.trace.job_list:
                 if job["toskip"] == 0:
                     m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
                     info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
-                    job["sharescore"] = random.randint(0, 2)
-                    # job["sharescore"] = info["label"].values[0]
+                    job["sharescore"] = info["label"].values[0]
+                    # job["sharescore"] = random.randint(0, 2)# the worst one 
+                    
         elif self.learning_fixed_colocate_analysis: 
             pred_df = pd.DataFrame(columns=["amp", "gpu_util", "gmem_util", "gmem", "label"])
+            collect_colocate_df = pd.DataFrame(columns=["model1", "model2", "batchsize1", "batchsize2", "dataset1", "dataset2", "amp1", "amp2", "speed1", "speed2"])
+            
             train_len = int(len(self.trace.job_list) * 0.1)
+            previous_jobs = list() 
             for job in self.trace.job_list[:train_len]:
                 if job["toskip"] == 0:
-                    m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
-                    info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
+                    selected_pair = None 
+                    for pair_job in previous_jobs[::-1]: 
+                        if self.is_pair_sharing(pair_job, job): 
+                            selected_pair = pair_job
+                            break 
+                    if selected_pair is None:
+                        previous_jobs.append(job)
+                    else: 
+                        previous_jobs.remove(selected_pair)
+                        modela = job["model"]
+                        dataseta = job["dataset"]
+                        batchsizea = job['batchsize']
+                        ampa = job['amp']
+                        
+                        modelb = selected_pair["model"]
+                        datasetb = selected_pair["dataset"]
+                        batchsizeb = selected_pair['batchsize']
+                        ampb = selected_pair['amp']
+                        
+                        info1 = colocate_df_gt.query("model1 == @modela and batchsize1 == @batchsizea and dataset1 == @dataseta and amp1 == @ampa and model2 == @modelb and batchsize2 == @batchsizeb and dataset2 == @datasetb and amp1 == @ampb")
+                        info1 = info1.drop(columns=['gpu_util', 'gmem_util', 'gmem'])
+                        # import pdb; pdb.set_trace() 
+                        if len(info1) > 0: 
+                            collect_colocate_df = pd.concat([collect_colocate_df, info1], ignore_index=True)
                     
-                    new_row = {
-                        "amp": info["amp"].values[0], 
-                        "gpu_util": info["gpu_util"].values[0],
-                        "gmem_util": info["gmem_util"].values[0],
-                        "gmem": info["gmem"].values[0],
-                        "label": info["label"].values[0]
-                    }
-                    
-                    new_row_df = pd.DataFrame(new_row, index=[0])
-                    pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
-                    # print(pred_df)
-                    # pred_df = pred_df.append((info["amp"], info["gpu_util"], info["gmem_util"], info["gmem"], info["label"]))
+            for job in self.trace.job_list[:train_len]: 
+                avg_speed = self.query_speed(job, collect_colocate_df)
+                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
+                if avg_speed < 0.85:
+                    auto_label = 2
+                elif avg_speed < 0.95:
+                    auto_label = 1
+                else:
+                    auto_label = 0
+                new_row = {
+                    "amp": info["amp"].values[0], 
+                    "gpu_util": info["gpu_util"].values[0],
+                    "gmem_util": info["gmem_util"].values[0],
+                    "gmem": info["gmem"].values[0],
+                    "label": auto_label
+                }
+                new_row_df = pd.DataFrame(new_row, index=[0])
+                pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
+                
+                # m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                # info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
+                # new_row = {
+                #     "amp": info["amp"].values[0], 
+                #     "gpu_util": info["gpu_util"].values[0],
+                #     "gmem_util": info["gmem_util"].values[0],
+                #     "gmem": info["gmem"].values[0],
+                #     "label": info["label"].values[0]
+                # }
+                # new_row_df = pd.DataFrame(new_row, index=[0])
+                # pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
+                # print(pred_df)
+                # pred_df = pred_df.append((info["amp"], info["gpu_util"], info["gmem_util"], info["gmem"], info["label"]))
             
+            # import pdb; pdb.set_trace() 
             pred_df = pred_df.drop_duplicates()
             column_types = {
                 "amp": int,
@@ -116,8 +195,8 @@ class Lucid(Policy):
 
     # Prescient Adaptive Sharing
     def check_pas(self):
-        # if self.estimator.cluster_name == "Venus" and self.check_future_cluster_throughput(metric="pred_gpu_job") <= 2:
-        if self.check_future_cluster_throughput(metric='pred_gpu_num') <= self._vc.vc_free_gpus():
+        if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 10:
+        # if self.check_future_cluster_throughput(metric='pred_gpu_num') <= self._vc.vc_free_gpus():
             return 0
         else:
             return 1
@@ -190,7 +269,7 @@ class Lucid(Policy):
     def simulate(self):
         prev_index = 0
         stale_que = []
-        delta = 10 
+        delta = 10
         while self.end_job_num != self.total_job_num:
             new_job_num = 0
 
@@ -214,7 +293,7 @@ class Lucid(Policy):
                     # if self.estimator.name != "LGBEstimator" and self.estimator.name != "PhillyEstimator":
                     #     self.estimator.update_train_data(job)
                 else:
-                    job["remain"] -= job["rate"]
+                    job["remain"] -= job["rate"] * delta 
             
             for job in remove_list: 
                 self.run_list.remove(job)
@@ -228,7 +307,7 @@ class Lucid(Policy):
                     self.end_job_num += 1
                     continue
 
-                if job["submit_time"] <= self.time and self.time - job['submit_time'] < delta: # very important 
+                if self.time - job["submit_time"] >= 0 and self.time - job['submit_time'] < delta: # very important 
                     job["status"] = "pend"
                     self.que_list.append(job)
                     prev_index = idx
@@ -292,25 +371,24 @@ class Lucid(Policy):
         self.log_recorder(self._name)
 
 class Lucid_alwaysgpu(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
-        super(Lucid_alwaysgpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+        super(Lucid_alwaysgpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
         self._name = "lucid-alwaysgpu"
     
     def check_pas(self):
-        # return 1
-        return 0
+        return 1
 
 class Lucid_nogpu(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
-        super(Lucid_nogpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+        super(Lucid_nogpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
         self._name = "lucid-nogpu"
     
     def check_pas(self):
         return 0
 
 class Lucid_node_scale(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater):
-        super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+        super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
 
         self.profnode_scaling_num = None
         self.get_nodescale_num()

@@ -1,7 +1,10 @@
 ,Venus
-lucid,1200648
-lucid-alwaysgpu,776937
-lucid,1081541
-lucid-alwaysgpu,659634
-lucid,16738392
-lucid-alwaysgpu,20086252
+lucid,12676
+lucid-alwaysgpu,12434
+lucid-nogpu,12863
+lucid,938
+lucid-alwaysgpu,486
+lucid-nogpu,1144
+lucid,98664
+lucid-alwaysgpu,66564
+lucid-nogpu,98744

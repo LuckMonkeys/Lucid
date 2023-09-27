@@ -16,7 +16,9 @@ seed = 123
 set_seed(seed)
 
 result = pd.DataFrame()
-single = pd.read_csv("PATH_TO_PROFILED_SINGLE_DATA.csv")
+# single = pd.read_csv("PATH_TO_PROFILED_SINGLE_DATA.csv")
+# colo = pd.read_csv(f"PATH_TO_PROFILED_COLOCATED_DATA.csv", index_col=0)
+single = pd.read_csv("single_data.csv")
 colo = pd.read_csv(f"PATH_TO_PROFILED_COLOCATED_DATA.csv", index_col=0)
 
 

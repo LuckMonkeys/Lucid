@@ -167,18 +167,10 @@ class VC:
 
     def release_resource(self, job):
         nodes_list = job["nodes"]
-        # print('starting release_resource', flush=True)
-        # print("length nodes list {}".format(len(nodes_list)))
-        # if job['job_id'] == 765488: 
-        #     print('pause ')
-        #     import pdb; pdb.set_trace() 
         for dict in nodes_list:
-            # print('single {}'.format(dict))
             for i, gpu_list in dict.items():
-                # print(f'process ndoe {i}, gpu_list {gpu_list}')
                 node = self.get_node(i)
                 assert node.node_name == i
-                print(self.vc_name)
                 assert node.release_gpu(gpu_list, job)
         return True
 
