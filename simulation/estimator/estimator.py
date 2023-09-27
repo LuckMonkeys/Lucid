@@ -104,7 +104,7 @@ class CombinedEstimator:
         self.train_data, _ = utils.train_data_loader(args.trace_dir, trace_range)
         self.job_names = self.train_data["jobname"].unique()
         # if args.scheduler == "lucid":
-        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale"]:
+        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]:
             if "Venus" in args.experiment_name:
                 self.data = pd.read_csv(f"./estimator/ebm/{args.experiment_name}_ebm_weekly_updated.csv")
             else:
@@ -200,7 +200,7 @@ class CombinedEstimator:
 class PhillyEstimator:
     def __init__(self, args):
         # if args.scheduler == "lucid":
-        if args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale"]:
+        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]:
             self.data = pd.read_csv(f"./estimator/ebm/Philly_ebm.csv")
         else:
             self.data = pd.read_csv(f"./estimator/lgb/Philly_lgb.csv")
@@ -217,7 +217,7 @@ class PhillyEstimator:
 class MLaasEstimator:
     def __init__(self, args):
         # if args.scheduler == "lucid":
-        if args.scheduler in ["lucid", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale"]:
+        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]:
             self.data = pd.read_csv(f"./estimator/ebm/MLaas_ebm.csv")
         else:
             self.data = pd.read_csv(f"./estimator/lgb/MLaas_lgb.csv")

@@ -3,6 +3,8 @@ import operator
 import os
 import pandas as pd
 from .policy import Policy
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
 
 
 GPU_MEMORY_LIMITATION = 24576  # RTX 3090 24GB Memory for our benchmarking
@@ -63,9 +65,122 @@ class Lucid(Policy):
 
         avg = (speed1 + speed2) / max(len1 + len2, 1)
         return round(avg, 3)
+    
+    
+    def obtain_colocate_train_data(self, colocate_df_gt,joblist):
+        df = self.colo_df
+        # colocate_df_gt = pd.read_csv("data/colocate_info.csv")
+        pred_df = pd.DataFrame(columns=["amp", "gpu_util", "gmem_util", "gmem", "label"])
+        collect_colocate_df = pd.DataFrame(columns=["model1", "model2", "batchsize1", "batchsize2", "dataset1", "dataset2", "amp1", "amp2", "speed1", "speed2"])
+        
+        previous_jobs = list() 
+        for job in joblist:
+            if job["toskip"] == 0:
+                selected_pair = None 
+                for pair_job in previous_jobs[::-1]: 
+                    if self.is_pair_sharing(pair_job, job): 
+                        selected_pair = pair_job
+                        break 
+                if selected_pair is None:
+                    previous_jobs.append(job)
+                else: 
+                    previous_jobs.remove(selected_pair)
+                    modela, dataseta, batchsizea, ampa = job["model"], job["dataset"], job["batchsize"], job['amp']
+                    modelb, datasetb, batchsizeb, ampb = selected_pair["model"], selected_pair["dataset"], selected_pair['batchsize'], selected_pair['amp']
+                    
+                    info1 = colocate_df_gt.query("model1 == @modela and batchsize1 == @batchsizea and dataset1 == @dataseta and amp1 == @ampa and model2 == @modelb and batchsize2 == @batchsizeb and dataset2 == @datasetb and amp1 == @ampb")
+                    info1 = info1.drop(columns=['gpu_util', 'gmem_util', 'gmem'])
+                    if len(info1) > 0: 
+                        if len(collect_colocate_df) == 0:
+                            collect_colocate_df = info1
+                        else:
+                            collect_colocate_df = pd.concat([collect_colocate_df, info1], ignore_index=True)
+                
+        for job in joblist: 
+            if job["toskip"] == 0:
+                avg_speed = self.query_speed(job, collect_colocate_df)
+                # if avg_speed == 0:
+                #     raise ValueError("avg_speed is zero")
+                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
+                if avg_speed < 0.85:
+                    auto_label = 2
+                elif avg_speed < 0.95:
+                    auto_label = 1
+                else:
+                    auto_label = 0
+                new_row = {
+                    "amp": info["amp"].values[0], 
+                    "gpu_util": info["gpu_util"].values[0],
+                    "gmem_util": info["gmem_util"].values[0],
+                    "gmem": info["gmem"].values[0],
+                    "label": auto_label
+                }
+                new_row_df = pd.DataFrame(new_row, index=[0])
+                if len(pred_df) == 0:
+                    pred_df = new_row_df
+                else:
+                    pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
+            
+        
+        pred_df = pred_df.drop_duplicates()
+        column_types = {
+            "amp": int,
+            "gpu_util": float,
+            "gmem_util": float,
+            "gmem": float,
+            "label": int
+        }
+        pred_df = pred_df.astype(column_types)
 
+        return pred_df
 
+    def update_df_with_clf(self, df, clf):
+        single = df.drop(columns=["dataset", "batchsize", "speed", "model"]) 
+        test_data = single.drop(columns="label")
+        replacement = clf.predict(test_data)
+        df[['label']] = pd.DataFrame(replacement, columns=['label'], index=single.index)
+        
+    
     def obtain_colocate_analysis(self):
+        self.get_colocate_data()
+        df = self.colo_df
+        colocate_df_gt = pd.read_csv("data/colocate_info.csv")
+        
+        # whether update df 
+        if self.learning_fixed_colocate_analysis or self.continue_learning_colocate_analysis:
+            if self.learning_fixed_colocate_analysis:
+                train_len = int(len(self.trace.job_list) * 0.1)
+                top_10_jobs = [job for job in self.trace.job_list[:train_len] if job["toskip"] == 0]
+                train_df = self.obtain_colocate_train_data(colocate_df_gt=colocate_df_gt, joblist=top_10_jobs)
+            else:
+                finish_jobs = [job for job in self.trace.job_list if job["status"] == "end" and job["toskip"] == 0]
+                train_df = self.obtain_colocate_train_data(colocate_df_gt=colocate_df_gt, joblist=finish_jobs)
+
+            if len(train_df) > 0 :
+                train_data = train_df.drop(columns="label")
+                train_label = train_df[['label']].astype(int)
+
+                clf = DecisionTreeClassifier()
+                clf.fit(train_data, train_label)
+
+                self.update_df_with_clf(df, clf) 
+            else:
+                print("-------------------------------train_df is None---------------------------------------")
+
+        elif self.perfect_colocate_analysis:
+            pass 
+        else:
+            raise ValueError("No learning method is specified")
+         
+        for job in self.trace.job_list:
+            if job["toskip"] == 0:
+                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
+                job["sharescore"] = info["label"].values[0]
+    
+    
+    def obtain_colocate_analysis_old(self):
         self.get_colocate_data()
         df = self.colo_df
         colocate_df_gt = pd.read_csv("data/colocate_info.csv")
@@ -96,15 +211,8 @@ class Lucid(Policy):
                         previous_jobs.append(job)
                     else: 
                         previous_jobs.remove(selected_pair)
-                        modela = job["model"]
-                        dataseta = job["dataset"]
-                        batchsizea = job['batchsize']
-                        ampa = job['amp']
-                        
-                        modelb = selected_pair["model"]
-                        datasetb = selected_pair["dataset"]
-                        batchsizeb = selected_pair['batchsize']
-                        ampb = selected_pair['amp']
+                        modela, dataseta, batchsizea, ampa = job["model"], job["dataset"], job["batchsize"], job['amp']
+                        modelb, datasetb, batchsizeb, ampb = selected_pair["model"], selected_pair["dataset"], selected_pair['batchsize'], selected_pair['amp']
                         
                         info1 = colocate_df_gt.query("model1 == @modela and batchsize1 == @batchsizea and dataset1 == @dataseta and amp1 == @ampa and model2 == @modelb and batchsize2 == @batchsizeb and dataset2 == @datasetb and amp1 == @ampb")
                         info1 = info1.drop(columns=['gpu_util', 'gmem_util', 'gmem'])
@@ -113,24 +221,27 @@ class Lucid(Policy):
                             collect_colocate_df = pd.concat([collect_colocate_df, info1], ignore_index=True)
                     
             for job in self.trace.job_list[:train_len]: 
-                avg_speed = self.query_speed(job, collect_colocate_df)
-                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
-                info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
-                if avg_speed < 0.85:
-                    auto_label = 2
-                elif avg_speed < 0.95:
-                    auto_label = 1
-                else:
-                    auto_label = 0
-                new_row = {
-                    "amp": info["amp"].values[0], 
-                    "gpu_util": info["gpu_util"].values[0],
-                    "gmem_util": info["gmem_util"].values[0],
-                    "gmem": info["gmem"].values[0],
-                    "label": auto_label
-                }
-                new_row_df = pd.DataFrame(new_row, index=[0])
-                pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
+                if job["toskip"] == 0:
+                    avg_speed = self.query_speed(job, collect_colocate_df)
+                    # if avg_speed == 0:
+                    #     raise ValueError("avg_speed is zero")
+                    m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                    info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
+                    if avg_speed < 0.85:
+                        auto_label = 2
+                    elif avg_speed < 0.95:
+                        auto_label = 1
+                    else:
+                        auto_label = 0
+                    new_row = {
+                        "amp": info["amp"].values[0], 
+                        "gpu_util": info["gpu_util"].values[0],
+                        "gmem_util": info["gmem_util"].values[0],
+                        "gmem": info["gmem"].values[0],
+                        "label": auto_label
+                    }
+                    new_row_df = pd.DataFrame(new_row, index=[0])
+                    pred_df = pd.concat([pred_df, new_row_df], ignore_index=True)
                 
                 # m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
                 # info = df.query("model == @m and batchsize == @b and dataset == @d and amp == @a")
@@ -156,8 +267,6 @@ class Lucid(Policy):
                 "label": int
             }
             pred_df = pred_df.astype(column_types)
-            from sklearn.model_selection import train_test_split
-            from sklearn.tree import DecisionTreeClassifier
 
             train_data = pred_df.drop(columns="label")
             train_label = pred_df[['label']].astype(int)
@@ -180,7 +289,7 @@ class Lucid(Policy):
                     m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
                     info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
                     job["sharescore"] = info["label"].values[0]
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
 
     def obtain_cluster_prediction(self):
         cluster = self.estimator.cluster_name
@@ -270,6 +379,13 @@ class Lucid(Policy):
         prev_index = 0
         stale_que = []
         delta = 10
+        
+        update_start = 0.1
+        num_skip_jobs = len([job for job in self.trace.job_list if job["toskip"] == 1])
+        num_jobs = len(self.trace.job_list)
+
+        
+        
         while self.end_job_num != self.total_job_num:
             new_job_num = 0
 
@@ -325,6 +441,15 @@ class Lucid(Policy):
                 # import pdb; pdb.set_trace() 
                 self.adaptive_colocate = self.check_pas()
             
+
+            if self.continue_learning_colocate_analysis and self.time>0 and self.time % 10000 == 0:
+    
+                num_end_jobs = len([job for job in self.trace.job_list if job["status"] == "end" and job["toskip"] == 0])
+                if num_end_jobs >= (num_jobs - num_skip_jobs) * update_start:
+                    self.obtain_colocate_analysis()
+                    update_start += 0.1
+                    print(update_start)
+             
             # if self.time % 100 == 0:
             if self.adaptive_colocate == 0:  # Disable colocation
                 for job in que_ls:
@@ -369,6 +494,16 @@ class Lucid(Policy):
             
 
         self.log_recorder(self._name)
+        
+class Lucid_fixed(Lucid):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+        super(Lucid_fixed, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed")
+        self._name = "lucid-fixed"
+    
+class Lucid_continue(Lucid):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+        super(Lucid_continue, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="continue")
+        self._name = "lucid-continue"
 
 class Lucid_alwaysgpu(Lucid):
     def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):

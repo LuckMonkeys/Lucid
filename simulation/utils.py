@@ -12,6 +12,8 @@ from policy import (
     QuasiShortestServiceFirst,
     Lucid,
     Lucid_alwaysgpu,
+    Lucid_fixed, 
+    Lucid_continue,
     Lucid_nogpu,
     Lucid_node_scale,
     Tiresias,
@@ -20,7 +22,7 @@ from profiler import LeastGPUFirstProfiler
 
 sys.path.append("..")
 
-PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale"]
+PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]
 
 
 def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
@@ -45,6 +47,12 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
     elif policy == "lucid-node-scale":
         estimator, updater, learning_method = args[0], args[1], args[2]
         scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+    elif policy == "lucid-fixed":
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_fixed(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+    elif policy == "lucid-continue":
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_continue(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "tiresias":
         scheduler = Tiresias(trace, vc, placement, log_dir, logger, start_ts)
     else:
@@ -64,7 +72,7 @@ def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir,
 
 
 def get_available_schedulers():
-    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale"]
+    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale", "lucid-fixed", "lucid-continue"]
 
 
 def get_sweep_schedulers():
