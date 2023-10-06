@@ -21,7 +21,7 @@ def main(args):
     
     log_dir = f"{args.log_dir}/{args.experiment_name}"
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir + "/logfile")
+        os.makedirs(log_dir + "/logfile", exist_ok=True)
     logger = utils.logger_init(file=f"{log_dir}/logfile/{args.scheduler}_{args.placer}")
 
     """Infrastructure & Trace Initialization"""

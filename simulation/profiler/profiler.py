@@ -66,12 +66,33 @@ class Profiler:
         raise NotImplementedError
 
     def get_time_series_data(self, cluster):
-        self.time_df = pd.read_csv(f"predictor/{cluster}_throughput_pred.csv", parse_dates=["time"])
+        # self.time_df = pd.read_csv(f"predictor/{cluster}_throughput_pred.csv", parse_dates=["time"])
 
-        self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
-        self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
-        self.time_df["time"] = self.time_df["time"] + self.start_ts
+        # self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
+        # self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
+        # self.time_df["time"] = self.time_df["time"] + self.start_ts
         # # self.time_df = self.time_df.set_index("time")
+        # 
+        
+        if "Venus" in cluster:
+            self.time_df = pd.read_csv(f"predictor/{cluster}_throughput_pred.csv", parse_dates=["time"])
+            self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
+            self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
+            self.time_df["time"] = self.time_df["time"] + self.start_ts
+
+        elif "Philly" or "MLaas" in cluster:
+            self.time_df = pd.read_csv(f"predictor/{cluster}_throughput_pred.csv")
+            self.time_df["time"] = self.time_df["time"] + self.start_ts
+            # self.time_df = pd.read_csv(f"predictor/Venus_throughput_pred.csv", parse_dates=["time"])
+            # self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
+            # self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
+            # self.time_df["time"] = self.time_df["time"] + self.start_ts
+
+        else:
+            raise NotImplementedError(f"The throughput prediction for cluster {cluster} is not implemented")
+
+        self.time_df = self.time_df.set_index("time")
+        
 
     def check_future_cluster_throughput(self):
         if len(self.time_df) == 0:
@@ -102,7 +123,7 @@ class Profiler:
 
     def log_recorder(self, policy_name):
         if not os.path.exists(os.path.join(self._log_dir, self._vc_name)):
-            os.mkdir(os.path.join(self._log_dir, self._vc_name))
+            os.makedirs(os.path.join(self._log_dir, self._vc_name), exist_ok=True)
 
         df = pd.DataFrame(self.trace.job_list)
 

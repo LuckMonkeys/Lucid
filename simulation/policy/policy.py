@@ -76,11 +76,13 @@ class Policy:
             self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
             self.time_df["time"] = self.time_df["time"] + self.start_ts
         elif "Philly" or "MLaas" in cluster:
-            self.time_df = pd.read_csv(f"predictor/Venus_throughput_pred.csv", parse_dates=["time"])
-
-            self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
-            self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
+            self.time_df = pd.read_csv(f"predictor/{cluster}_throughput_pred.csv")
             self.time_df["time"] = self.time_df["time"] + self.start_ts
+
+            # self.time_df = pd.read_csv(f"predictor/Venus_throughput_pred.csv", parse_dates=["time"])
+            # self.time_df["time"] = self.time_df["time"] - pd.Timestamp(self.time_df["time"][0])
+            # self.time_df["time"] = self.time_df["time"].map(lambda x: x.seconds + 3600 * 24 * x.days)
+            # self.time_df["time"] = self.time_df["time"] + self.start_ts
         else:
             raise NotImplementedError(f"The throughput prediction for cluster {cluster} is not implemented")
             

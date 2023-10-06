@@ -305,6 +305,7 @@ class Lucid(Policy):
     # Prescient Adaptive Sharing
     def check_pas(self):
         if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 10:
+        # if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 2:
         # if self.check_future_cluster_throughput(metric='pred_gpu_num') <= self._vc.vc_free_gpus():
             return 0
         else:
@@ -378,7 +379,7 @@ class Lucid(Policy):
     def simulate(self):
         prev_index = 0
         stale_que = []
-        delta = 10
+        delta = 1
         
         update_start = 0.1
         num_skip_jobs = len([job for job in self.trace.job_list if job["toskip"] == 1])
@@ -442,7 +443,8 @@ class Lucid(Policy):
                 self.adaptive_colocate = self.check_pas()
             
 
-            if self.continue_learning_colocate_analysis and self.time>0 and self.time % 10000 == 0:
+            # if self.continue_learning_colocate_analysis and self.time>0 and self.time % 10000 == 0:
+            if self.continue_learning_colocate_analysis and self.time>0:
     
                 num_end_jobs = len([job for job in self.trace.job_list if job["status"] == "end" and job["toskip"] == 0])
                 if num_end_jobs >= (num_jobs - num_skip_jobs) * update_start:
@@ -534,4 +536,4 @@ class Lucid_node_scale(Lucid):
         if self.profnode_scaling_num == 0:
             self.vc_echo_scaling = False
 
-    
+   
