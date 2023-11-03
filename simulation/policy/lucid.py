@@ -5,6 +5,7 @@ import pandas as pd
 from .policy import Policy
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
+import numpy as np
 
 
 GPU_MEMORY_LIMITATION = 24576  # RTX 3090 24GB Memory for our benchmarking
@@ -302,9 +303,18 @@ class Lucid(Policy):
             if job["job_id"] == id:
                 return job
 
+    def obtain_history_throughput(self, metric, ratio):
+        time_df = self.time_df[self.time_df["time"] < self.time]
+        if len(time_df) == 0:
+            return 10
+        metric_history = time_df[metric].tolist()
+        threshold = np.percentile(metric_history, ratio * 100)
+        return threshold
+    
     # Prescient Adaptive Sharing
     def check_pas(self):
-        if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 10:
+        threshold = self.obtain_history_throughput(metric="submit_gpu_job", ratio=0.25) 
+        if self.check_future_cluster_throughput(metric="pred_gpu_job") <= threshold:
         # if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 2:
         # if self.check_future_cluster_throughput(metric='pred_gpu_num') <= self._vc.vc_free_gpus():
             return 0

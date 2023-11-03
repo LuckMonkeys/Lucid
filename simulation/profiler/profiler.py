@@ -91,7 +91,7 @@ class Profiler:
         else:
             raise NotImplementedError(f"The throughput prediction for cluster {cluster} is not implemented")
 
-        self.time_df = self.time_df.set_index("time")
+        # self.time_df = self.time_df.set_index("time")
         
 
     def check_future_cluster_throughput(self):
@@ -143,7 +143,7 @@ class Profiler:
 
         path = f"{self._log_dir}/logfile/{self._vc_name}"
         if not os.path.exists(path):
-            os.makedirs(path)
+            os.makedirs(path, exist_ok=True)
         df.to_csv(
             f"{path}/{policy_name}_{self._placement}_time{self.time_limit}_scale{self.scale}_factor{self.prof_gpu_limit}_log.csv",
             index=False,
