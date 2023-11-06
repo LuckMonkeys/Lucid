@@ -38,3 +38,6 @@ for i in $(seq 0 $max_config_idx)
 do
     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml"
 done
+
+#3. generate best config for cluster
+python search_config_analyze.py
