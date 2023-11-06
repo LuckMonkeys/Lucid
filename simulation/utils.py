@@ -19,13 +19,26 @@ from policy import (
     Tiresias,
 )
 from profiler import LeastGPUFirstProfiler
+import numpy as np
 
 sys.path.append("..")
 
-PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]
+PROFILER_ENABLED_SCHEDULERS = ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue", "search"]
 
 
 def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
+
+    threshold_ratio=0.25
+    if len(args) == 1:
+        estimator = args[0]
+    elif len(args) == 3:
+        estimator, updater, learning_method = args[0], args[1], args[2]
+    elif len(args) == 4:
+        estimator, updater, learning_method = args[0], args[1], args[2]
+        threshold_ratio = args[3]
+    else:
+        raise NotImplementedError("args error")
+        
     if policy == "sjf":
         scheduler = ShortestJobFirst(trace, vc, placement, log_dir, logger, start_ts)
     elif policy == "fifo":
@@ -36,23 +49,23 @@ def simulate_vc(trace, vc, placement, log_dir, policy, logger, start_ts, *args):
         estimator = args[0]
         scheduler = QuasiShortestServiceFirst(trace, vc, placement, log_dir, logger, start_ts, estimator)
     elif policy == "lucid":
-        estimator, updater, learning_method = args[0], args[1], args[2]
+        # estimator, updater, learning_method = args[0], args[1], args[2]
         scheduler = Lucid(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
     elif policy == "lucid-alwaysgpu":
-        estimator, updater, learning_method = args[0], args[1], args[2]
-        scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+        # estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_alwaysgpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio)
     elif policy == "lucid-nogpu":
-        estimator, updater, learning_method = args[0], args[1], args[2]
-        scheduler = Lucid_nogpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+        # estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_nogpu(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio)
     elif policy == "lucid-node-scale":
-        estimator, updater, learning_method = args[0], args[1], args[2]
-        scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+        # estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_node_scale(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio)
     elif policy == "lucid-fixed":
-        estimator, updater, learning_method = args[0], args[1], args[2]
-        scheduler = Lucid_fixed(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+        # estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_fixed(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio)
     elif policy == "lucid-continue":
-        estimator, updater, learning_method = args[0], args[1], args[2]
-        scheduler = Lucid_continue(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+        # estimator, updater, learning_method = args[0], args[1], args[2]
+        scheduler = Lucid_continue(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio)
     elif policy == "tiresias":
         scheduler = Tiresias(trace, vc, placement, log_dir, logger, start_ts)
     else:
@@ -72,7 +85,7 @@ def trace_profile(trace, scale, time_limit, profiler_factor, placement, log_dir,
 
 
 def get_available_schedulers():
-    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale", "lucid-fixed", "lucid-continue"]
+    return ["fifo", "sjf", "srtf", "qssf", "lucid", "tiresias", "lucid-alwaysgpu", "lucid-nogpu","lucid-node-scale", "lucid-fixed", "lucid-continue", "search"]
 
 
 def get_sweep_schedulers():
@@ -322,20 +335,25 @@ def logger_init(file):
     return logger
 
 
-def cluster_concatenate(policy, placer, log_dir, dir):
+def cluster_concatenate(policy, placer, log_dir, dir, vc_dict, scheduler_for_vc=None):
     prefix = f"{policy}_{placer}"
     if not os.path.exists(log_dir + "/all"):
         os.mkdir(log_dir + "/all")
 
-    vc_df = pd.read_csv(dir + "/vc_config.csv", index_col=0)
-    vcs = vc_df.index.to_list()
+    # vc_df = pd.read_csv(dir + "/vc_config.csv", index_col=0)
+    # vcs = vc_df.index.to_list()
+    vcs = vc_dict.keys()
 
     """Log"""
     cluster_log = pd.DataFrame()
     for vc in vcs:
+        if policy == 'search':
+            prefix = f'{scheduler_for_vc[vc]}_{placer}'
         vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_log.csv")
         cluster_log = pd.concat([cluster_log, vc_log])
     cluster_log.sort_values(by="submit_time", inplace=True)
+
+    prefix = f"{policy}_{placer}"
     cluster_log.to_csv(f"{log_dir}/all/{prefix}_all_log.csv", index=False)
 
     """Seq"""
@@ -352,6 +370,9 @@ def cluster_concatenate(policy, placer, log_dir, dir):
         "shared_node_num",
     ]
     for vc in vcs:
+        if policy == 'search':
+            prefix = f'{scheduler_for_vc[vc]}_{placer}'
+
         vc_seq = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_seq.csv")
         if len(cluster_seq) == 0:
             cluster_seq = vc_seq
@@ -362,15 +383,18 @@ def cluster_concatenate(policy, placer, log_dir, dir):
         cluster_seq["gpu_utilization"] = (
             (cluster_seq["total_gpu_num"] - cluster_seq["idle_gpu_num"]) / cluster_seq["total_gpu_num"]
         ).round(3)
+    
+    prefix = f"{policy}_{placer}"
     cluster_seq.to_csv(f"{log_dir}/all/{prefix}_all_seq.csv", index=False)
 
 
-def cluster_analysis(placer, log_dir, dir):
+def cluster_analysis(placer, log_dir, dir, vc_dict, scheduler_for_vc=None):
     """Generate Algorithm Comparsion CSV"""
     # ignore_warm_up = start_ts + 7*24*3600
 
-    vc_df = pd.read_csv(dir + "/vc_config.csv", index_col=0)
-    vcs = vc_df.index.to_list()
+    # vc_df = pd.read_csv(dir + "/vc_config.csv", index_col=0)
+    # vcs = vc_df.index.to_list()
+    vcs = list(vc_dict.keys())
     vcs.append("all")
 
     files = os.listdir(f"{log_dir}/all")
@@ -392,7 +416,12 @@ def cluster_analysis(placer, log_dir, dir):
     que_avg = pd.DataFrame()
     for prefix in prefix_list:
         for vc in vcs:
-            vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_log.csv")
+            if 'search' in prefix and vc != "all":
+                placer = prefix.split('_')[1]
+                prefix_vc = f"{scheduler_for_vc[vc]}_{placer}"
+                vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix_vc}_{vc}_log.csv")
+            else:
+                vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_log.csv")
             # vc_log = vc_log[vc_log['submit_time'] > ignore_warm_up]
             if filter_profile_job:
                 jct_avg.at[vc, prefix] = vc_log[(vc_log["jct"]>200) & (vc_log["gpu_num"]<=8) ]["jct"].mean()
@@ -454,8 +483,10 @@ def profiler_config(experiment_name, vc_dict):
         vc_dict["vc8Gr"] -= 1
         vc_dict["vcefl"] -= 1
     elif cluster == "Venus": # why subtract 1 for only these two vc?
-        vc_dict["vc8Gr"] -= 1
-        vc_dict["vcefl"] -= 1
+        if "vc8Gr" in vc_dict:
+            vc_dict["vc8Gr"] -= 1
+        if "vcefl" in vc_dict:
+            vc_dict["vcefl"] -= 1
         # vc_dict["vcYVn"] -= 1  # For elastic scaling
     elif cluster == "MLaas": # why subtract 1 for only these two vc?
         vc_dict["vc8Gr"] -= 1
@@ -491,6 +522,48 @@ def get_minimal_nodes(experiment_name):
    else:
        raise NotImplementedError("The minimal nodes for other experiment are not provided currently.")
 
+
+def trace_scale_sample(trace, scale, vc_dict):
+    update_fields = ['gpu_num', 'submit_time', 'duration', 'speed', 'gpu_util',  'gmem_util', 'gmem', 'remain']
+    new_total_job_list = []
+
+    for vc in vc_dict.keys():
+        vc_trace = trace.vc_trace(vc)
+        job_list = vc_trace.job_list
+
+        job_skip = [job for job in job_list if job["toskip"] == 1]
+        job_no_skip = [job for job in job_list if job["toskip"] == 0]
+        new_job_no_skip = []
+        
+        print(f"vc: {vc} job nums before scale {len(job_skip)} + {len(job_no_skip)}")
+        for i in range(0, len(job_no_skip), scale[vc]):
+
+            base_job = job_no_skip[i]
+            values = []
+            for j in range(i, min(i+scale[vc], len(job_no_skip))):
+                value = []
+                for field in update_fields:
+                    value.append(job_no_skip[j][field])
+                values.append(value)
+            gpu_num = np.median(values, axis=0)[0]
+            mean_field = np.mean(values, axis=0)
+
+            base_job['gpu_num'] = int(gpu_num)
+            for i in range(1, len(update_fields)):
+                base_job[update_fields[i]] = type(base_job[update_fields[i]])(mean_field[i])
+            
+            new_job_no_skip.append(base_job)
+
+        new_total_job_list.extend(job_skip)
+        new_total_job_list.extend(new_job_no_skip)
+        print(f"vc: {vc} job nums after scale {len(job_skip)} + {len(new_job_no_skip)}")
+
+        
+        # vc_trace.job_list = job_list
+    new_trace = Trace() 
+    new_trace.job_list = new_total_job_list
+    new_trace.sort_jobs('submit_time')
+    return new_trace
 
 if __name__ == "__main__":
     files = os.listdir(f"log/Venus_Sept/all")

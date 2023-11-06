@@ -8,6 +8,7 @@ import utils
 import cluster
 from estimator import CombinedEstimator, PhillyEstimator, MLaasEstimator
 from updater import ColocateUpdater
+import yaml
 
 os.environ["NUMEXPR_MAX_THREADS"] = str(os.cpu_count())
 
@@ -20,6 +21,23 @@ def main(args):
     args.log_dir = f"{args.log_dir}/vc_node_factor_{args.vc_nodes_factor}"
     
     log_dir = f"{args.log_dir}/{args.experiment_name}"
+    
+    vc_filter = []
+    if args.scheduler == "search":
+        log_dir += f"_{args.search_config.split('/')[-1].split('.')[0]}"
+        
+        f = open(args.search_config, 'r')
+        search_config = yaml.safe_load(f)
+        
+        scheduler_for_vc = search_config['scheduler']
+        trace_scale_for_vc = search_config['trace_scale']
+        cluster_scale_for_vc = search_config['cluster_scale']
+
+        vc_filter = scheduler_for_vc.keys()
+        
+        
+    
+    
     if not os.path.exists(log_dir):
         os.makedirs(log_dir + "/logfile", exist_ok=True)
     logger = utils.logger_init(file=f"{log_dir}/logfile/{args.scheduler}_{args.placer}")
@@ -32,6 +50,16 @@ def main(args):
     vc_dict = {k: max(int(v * args.vc_nodes_factor), vc_minimal_nodes[k]) for k, v in vc_dict.items()}
     
     trace_df, start_ts = utils.get_trace(args.experiment_name, args.trace_dir, read_full=True, idx=args.pollux_idx)
+
+    #trace filter for vc
+    if len(vc_filter) > 0:
+        vc_dict = {vc:vc_dict[vc] for vc in vc_filter}
+
+        print(f"cluster num before scale {vc_dict}")
+        vc_dict = {k: max(int(v / cluster_scale_for_vc[k]), vc_minimal_nodes[k]) for k, v in vc_dict.items()}
+        print(f"cluster num after scale {vc_dict}")
+
+        trace_df = trace_df[trace_df['vc'].isin(vc_filter)]
 
     logger.info(f"Total Job Number in Cluster Training: {len(trace_df)}")
 
@@ -54,7 +82,6 @@ def main(args):
 
     colocate_df = pd.read_csv("data/colocate_info.csv")
     updater = ColocateUpdater(colocate_df)
-
     CLUSTER = cluster.Cluster(vc_dict, args.num_gpus_per_node, args.num_cpus_per_node)
 
     if "Philly" in args.experiment_name:
@@ -66,13 +93,14 @@ def main(args):
     else:
         raise NotImplementedError(f"The Estimator for dataset {args.experiment_name} is not implemented.")
         
-    
-
+    if args.scheduler == 'search':
+        trace = utils.trace_scale_sample(trace, trace_scale_for_vc, vc_dict)
     """
     Sweep ON: Run All Scheduler Policies in One Experiment
     Sweep OFF: Run Dedicated Scheduler Policy (Default)
     """
     if args.sweep:
+        raise NotImplementedError("do not use sweep")
         process_num = os.cpu_count()
         all_args_list = []
         for policy in utils.get_sweep_schedulers():
@@ -107,13 +135,19 @@ def main(args):
                 )
             elif args.scheduler in ["fifo", "sjf", "srtf", "tiresias"]:
                 all_args_list.append((trace, CLUSTER.vc_list[i], args.placer, log_dir, args.scheduler, logger, start_ts))
+            elif args.scheduler == "search":
+                vc_name = CLUSTER.vc_list[i].vc_name
+                all_args_list.append(
+                    (trace, CLUSTER.vc_list[i], args.placer, log_dir, scheduler_for_vc[vc_name], logger, start_ts, estimator, updater, args.learning_method)
+                )
             else:
                 raise NotImplementedError(f"Scheduler {args.scheduler} Not Implemented")
     # for i in range(len(all_args_list)): 
     #     result = utils.simulate_vc(*all_args_list[i])
     #     exit(0)
     
-    
+    # utils.simulate_vc(*all_args_list[2])
+    # exit(0)
     
     with multiprocessing.Pool(processes=process_num) as p:
         results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
@@ -126,8 +160,12 @@ def main(args):
         if args.scheduler == "lucid-node-scale":
             args.scheduler = f"lucid-node-scale-{args.node_scaling_num}"
 
-        utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir)
-        utils.cluster_analysis(args.placer, log_dir, args.trace_dir)
+        if args.scheduler == "search":
+            utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir, vc_dict, scheduler_for_vc)
+            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict, scheduler_for_vc)
+        else:
+            utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir, vc_dict)
+            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict)
 
         """Fast query result"""
         sched_label = args.scheduler + "_consolidate"
@@ -183,7 +221,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--vc_nodes_factor", type=float, default=1.0, help=("Number of nodes per VC = round(factor x original_num"))
     parser.add_argument("--learning_method", type=str, default='perfect', choices=["perfect", "fixed", "continue"] , help=("learning method for colocate prediction"))
-    
+
+    parser.add_argument("--search_config", type=str, default='',  help="The config for search paramters")
     args = parser.parse_args()
 
     main(args)

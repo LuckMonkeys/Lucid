@@ -12,7 +12,7 @@ GPU_MEMORY_LIMITATION = 24576  # RTX 3090 24GB Memory for our benchmarking
 
 
 class Lucid(Policy):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
         super(Lucid, self).__init__(trace, vc, placement, log_dir, logger, start_ts)
         # import pdb; pdb.set_trace() 
         self.estimator = estimator
@@ -30,6 +30,8 @@ class Lucid(Policy):
             self.learning_fixed_colocate_analysis = True 
         elif learning_method == 'continue': 
             self.continue_learning_colocate_analysis = True 
+        
+        self.threshold_ratio=threshold_ratio
             
         self.enable_colocate()
         self.adaptive_colocate = 0
@@ -313,7 +315,7 @@ class Lucid(Policy):
     
     # Prescient Adaptive Sharing
     def check_pas(self):
-        threshold = self.obtain_history_throughput(metric="submit_gpu_job", ratio=0.25) 
+        threshold = self.obtain_history_throughput(metric="submit_gpu_job", ratio=self.threshold_ratio) 
         if self.check_future_cluster_throughput(metric="pred_gpu_job") <= threshold:
         # if self.check_future_cluster_throughput(metric="pred_gpu_job") <= 2:
         # if self.check_future_cluster_throughput(metric='pred_gpu_num') <= self._vc.vc_free_gpus():
@@ -389,7 +391,7 @@ class Lucid(Policy):
     def simulate(self):
         prev_index = 0
         stale_que = []
-        delta = 1
+        delta = 10
         
         update_start = 0.1
         num_skip_jobs = len([job for job in self.trace.job_list if job["toskip"] == 1])
@@ -508,34 +510,34 @@ class Lucid(Policy):
         self.log_recorder(self._name)
         
 class Lucid_fixed(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
-        super(Lucid_fixed, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed")
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
+        super(Lucid_fixed, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed", threshold_ratio=threshold_ratio)
         self._name = "lucid-fixed"
     
 class Lucid_continue(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
-        super(Lucid_continue, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="continue")
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
+        super(Lucid_continue, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="continue", threshold_ratio=threshold_ratio)
         self._name = "lucid-continue"
 
 class Lucid_alwaysgpu(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
-        super(Lucid_alwaysgpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
+        super(Lucid_alwaysgpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed", threshold_ratio=threshold_ratio)
         self._name = "lucid-alwaysgpu"
     
     def check_pas(self):
         return 1
 
 class Lucid_nogpu(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
-        super(Lucid_nogpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
+        super(Lucid_nogpu, self).__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed" , threshold_ratio=threshold_ratio)
         self._name = "lucid-nogpu"
     
     def check_pas(self):
         return 0
 
 class Lucid_node_scale(Lucid):
-    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method):
-        super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method)
+    def __init__(self, trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method, threshold_ratio=0.25):
+        super().__init__(trace, vc, placement, log_dir, logger, start_ts, estimator, updater, learning_method="fixed" , threshold_ratio=threshold_ratio)
 
         self.profnode_scaling_num = None
         self.get_nodescale_num()
