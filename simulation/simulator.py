@@ -94,7 +94,7 @@ def main(args):
         raise NotImplementedError(f"The Estimator for dataset {args.experiment_name} is not implemented.")
         
     if args.scheduler == 'search':
-        trace = utils.trace_scale_sample(trace, trace_scale_for_vc, vc_dict)
+        trace = utils.trace_scale_sample(trace, trace_scale_for_vc, vc_dict, sharescore_predict="./analyzer/single_data.csv")
     """
     Sweep ON: Run All Scheduler Policies in One Experiment
     Sweep OFF: Run Dedicated Scheduler Policy (Default)
@@ -162,14 +162,18 @@ def main(args):
 
         if args.scheduler == "search":
             utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir, vc_dict, scheduler_for_vc)
-            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict, scheduler_for_vc)
+            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict, args.filter_profile_job, scheduler_for_vc)
         else:
             utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir, vc_dict)
             utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict)
 
         """Fast query result"""
         sched_label = args.scheduler + "_consolidate"
-        jct_df = pd.read_csv(f"{log_dir}/jct_avg_consolidate.csv", index_col=0)
+        if args.filter_profile_job:
+            jct_df = pd.read_csv(f"{log_dir}/jct_avg_consolidate_execludeProfileGPU.csv", index_col=0)
+        else:
+            jct_df = pd.read_csv(f"{log_dir}/jct_avg_consolidate.csv", index_col=0)
+        
         jct = jct_df.at["all", sched_label]
         que_df = pd.read_csv(f"{log_dir}/que_avg_consolidate.csv", index_col=0)
         que = que_df.at["all", sched_label]
@@ -223,6 +227,8 @@ if __name__ == "__main__":
     parser.add_argument("--learning_method", type=str, default='perfect', choices=["perfect", "fixed", "continue"] , help=("learning method for colocate prediction"))
 
     parser.add_argument("--search_config", type=str, default='',  help="The config for search paramters")
+    parser.add_argument("--filter_profile_job", type=bool, default=False,  help="whether exclude the profile job in jct analysis")
+    
     args = parser.parse_args()
 
     main(args)

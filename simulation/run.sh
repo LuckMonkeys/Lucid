@@ -30,14 +30,27 @@
 
 ## search with scaled trance and cluster
 #1. generate config yaml
-python search_config_generate.py
+# python search_config_generate.py
  
 #2. run search with config yaml
-max_config_idx=3
-for i in $(seq 0 $max_config_idx)
-do
-    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml"
-done
+max_config_idx=15
+# for i in $(seq 0 $max_config_idx)
+# for ((i=0; i<=max_config_idx; i+=4));
+# do
+#     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_withss" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True &
+#     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_withss" --search_config="./data/Venus/config/$((i+1)).yaml" --filter_profile_job=True &
+#     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_withss" --search_config="./data/Venus/config/$((i+2)).yaml" --filter_profile_job=True &
+#     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_withss" --search_config="./data/Venus/config/$((i+3)).yaml" --filter_profile_job=True&
+#     wait
+# done
 
+for ((i=0; i<=max_config_idx; i+=4));
+do
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+1)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+2)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+3)).yaml" --filter_profile_job=True&
+    wait
+done
 #3. generate best config for cluster
-python search_config_analyze.py
+# python search_config_analyze.py

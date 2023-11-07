@@ -388,7 +388,7 @@ def cluster_concatenate(policy, placer, log_dir, dir, vc_dict, scheduler_for_vc=
     cluster_seq.to_csv(f"{log_dir}/all/{prefix}_all_seq.csv", index=False)
 
 
-def cluster_analysis(placer, log_dir, dir, vc_dict, scheduler_for_vc=None):
+def cluster_analysis(placer, log_dir, dir, vc_dict, filter_profile_job=False, scheduler_for_vc=None):
     """Generate Algorithm Comparsion CSV"""
     # ignore_warm_up = start_ts + 7*24*3600
 
@@ -410,7 +410,7 @@ def cluster_analysis(placer, log_dir, dir, vc_dict, scheduler_for_vc=None):
     #     prefix = f"{i}_{placer}"
     #     prefix_list.append(prefix)
     
-    filter_profile_job = False
+    # filter_profile_job = False
 
     jct_avg = pd.DataFrame()
     que_avg = pd.DataFrame()
@@ -424,7 +424,9 @@ def cluster_analysis(placer, log_dir, dir, vc_dict, scheduler_for_vc=None):
                 vc_log = pd.read_csv(f"{log_dir}/{vc}/{prefix}_{vc}_log.csv")
             # vc_log = vc_log[vc_log['submit_time'] > ignore_warm_up]
             if filter_profile_job:
-                jct_avg.at[vc, prefix] = vc_log[(vc_log["jct"]>200) & (vc_log["gpu_num"]<=8) ]["jct"].mean()
+                # jct_avg.at[vc, prefix] = vc_log[(vc_log["jct"]>200) & (vc_log["gpu_num"]<=8) ]["jct"].mean() # why gpu_num <=8?
+                jct_avg.at[vc, prefix] = vc_log[vc_log["jct"]>200]["jct"].mean()
+                
             else:
                 jct_avg.at[vc, prefix] = vc_log["jct"].mean()
                 
@@ -523,9 +525,22 @@ def get_minimal_nodes(experiment_name):
        raise NotImplementedError("The minimal nodes for other experiment are not provided currently.")
 
 
-def trace_scale_sample(trace, scale, vc_dict):
-    update_fields = ['gpu_num', 'submit_time', 'duration', 'speed', 'gpu_util',  'gmem_util', 'gmem', 'remain']
+def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
+    numeric_fields = ['gpu_num', 'submit_time', 'duration', 'speed', 'gpu_util',  'gmem_util', 'gmem', 'remain']
+    task_fields = ['model', 'batchsize', 'dataset', 'amp']
     new_total_job_list = []
+    
+    if sharescore_predict is not None:
+        df = pd.read_csv(sharescore_predict)
+        
+        for job in trace.job_list:
+            if job["toskip"] == 0:
+                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
+                job["sharescore"] = info["label"].values[0]
+        
+        # numeric_fields.append("sharescore")
+         
 
     for vc in vc_dict.keys():
         vc_trace = trace.vc_trace(vc)
@@ -540,17 +555,36 @@ def trace_scale_sample(trace, scale, vc_dict):
 
             base_job = job_no_skip[i]
             values = []
+            if sharescore_predict is not None:
+                sharescore_values = []
+
             for j in range(i, min(i+scale[vc], len(job_no_skip))):
                 value = []
-                for field in update_fields:
+                for field in numeric_fields:
                     value.append(job_no_skip[j][field])
+                
+                if sharescore_predict is not None:
+                    sharescore_values.append(job_no_skip[j]["sharescore"])
+                    
                 values.append(value)
+
             gpu_num = np.median(values, axis=0)[0]
+
+            if sharescore_predict is not None:
+                sharescore_median = int(np.median(sharescore_values))
+                if sharescore_median in sharescore_values:
+                    index = sharescore_values.index(sharescore_median)
+                else:
+                    index = np.where(np.array(sharescore_values) > sharescore_median)[0][0]
+
+                for field in task_fields:
+                    base_job[field] = job_no_skip[i+index][field]
+            
             mean_field = np.mean(values, axis=0)
 
             base_job['gpu_num'] = int(gpu_num)
-            for i in range(1, len(update_fields)):
-                base_job[update_fields[i]] = type(base_job[update_fields[i]])(mean_field[i])
+            for i in range(1, len(numeric_fields)):
+                base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
             
             new_job_no_skip.append(base_job)
 
