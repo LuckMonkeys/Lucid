@@ -572,7 +572,8 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
                 # keep service same 
                 total_service += job_no_skip[j]["duration"] * job_no_skip[j]["gpu_num"]
                 total_job += 1
-                import pdb; pdb.set_trace() 
+                values.append(value)
+                
             mean_service = total_service / total_job
             gpu_num = np.median(values, axis=0)[0]
             duration = max(1, int(mean_service / gpu_num))

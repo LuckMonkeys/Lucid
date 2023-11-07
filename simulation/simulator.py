@@ -95,7 +95,7 @@ def main(args):
         
     if args.scheduler == 'search':
         trace = utils.trace_scale_sample(trace, trace_scale_for_vc, vc_dict, sharescore_predict="./analyzer/single_data.csv")
-        import pdb; pdb.set_trace() 
+
     """
     Sweep ON: Run All Scheduler Policies in One Experiment
     Sweep OFF: Run Dedicated Scheduler Policy (Default)
