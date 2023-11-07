@@ -68,8 +68,9 @@ def get_scale_down_results(result_dir, dataset, info, scales=4, exclude_profile_
 
         values.append(jct_pd[jct_pd['index'] == "all"].values[0][1])
         
-    df_dict = {"info":info}
-    df_dict.update({f"scale_{scales[i]}":values[j:j+len(scales)] for i, j in enumerate(range(0, len(values), len(scales)))})
+    df_dict = {"scales":scales}
+    df_dict.update({f"{info[i]}":values[j:j+len(scales)] for i, j in enumerate(range(0, len(values), len(scales)))})
+    # print(df_dict)
     df = pd.DataFrame.from_dict(df_dict)
     
     print(df)
