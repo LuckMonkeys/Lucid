@@ -1,0 +1,16 @@
+cluster_scale:
+  vcHvQ: 2
+  vcJsw: 2
+  vcvGl: 2
+scheduler:
+  vcHvQ: lucid-alwaysgpu
+  vcJsw: lucid-alwaysgpu
+  vcvGl: lucid-alwaysgpu
+threshold:
+  vcHvQ: 0.2
+  vcJsw: 0.2
+  vcvGl: 0.2
+trace_scale:
+  vcHvQ: 5
+  vcJsw: 5
+  vcvGl: 5

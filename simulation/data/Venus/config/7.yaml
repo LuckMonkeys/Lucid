@@ -1,0 +1,16 @@
+cluster_scale:
+  vcHvQ: 2
+  vcJsw: 2
+  vcvGl: 2
+scheduler:
+  vcHvQ: lucid-continue
+  vcJsw: lucid-continue
+  vcvGl: lucid-continue
+threshold:
+  vcHvQ: 0.4
+  vcJsw: 0.4
+  vcvGl: 0.4
+trace_scale:
+  vcHvQ: 5
+  vcJsw: 5
+  vcvGl: 5

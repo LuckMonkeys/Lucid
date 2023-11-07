@@ -46,6 +46,8 @@ max_config_idx=15
 
 for ((i=0; i<=max_config_idx; i+=4));
 do
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True
+    exit 
     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True &
     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+1)).yaml" --filter_profile_job=True &
     python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+2)).yaml" --filter_profile_job=True &

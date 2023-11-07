@@ -558,20 +558,29 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
             if sharescore_predict is not None:
                 sharescore_values = []
 
+            total_service = 0 
+            total_job = 0 
             for j in range(i, min(i+scale[vc], len(job_no_skip))):
                 value = []
                 for field in numeric_fields:
                     value.append(job_no_skip[j][field])
                 
                 if sharescore_predict is not None:
-                    sharescore_values.append(job_no_skip[j]["sharescore"])
-                    
-                values.append(value)
-
+                    weight = job_no_skip[j]["duration"] * job_no_skip[j]["gpu_num"]
+                    sharescore_values.append(job_no_skip[j]["sharescore"] * weight)
+                value.append(job_no_skip[j]["sharescore"])
+                # keep service same 
+                total_service += job_no_skip[j]["duration"] * job_no_skip[j]["gpu_num"]
+                total_job += 1
+                import pdb; pdb.set_trace() 
+            mean_service = total_service / total_job
             gpu_num = np.median(values, axis=0)[0]
-
+            duration = max(1, int(mean_service / gpu_num))
+            # duration = np.mean(values, axis=0)[2]
+            mean_field = np.mean(values, axis=0)
             if sharescore_predict is not None:
-                sharescore_median = int(np.median(sharescore_values))
+                weight = gpu_num * duration
+                sharescore_median = int(np.median(sharescore_values) / weight)
                 if sharescore_median in sharescore_values:
                     index = sharescore_values.index(sharescore_median)
                 else:
@@ -579,12 +588,15 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
 
                 for field in task_fields:
                     base_job[field] = job_no_skip[i+index][field]
+                
             
-            mean_field = np.mean(values, axis=0)
 
             base_job['gpu_num'] = int(gpu_num)
+            duration = max(1, int(mean_service / gpu_num))
             for i in range(1, len(numeric_fields)):
                 base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
+                if numeric_fields[i] == "duration":
+                    base_job[numeric_fields[i]] = duration
             
             new_job_no_skip.append(base_job)
 
