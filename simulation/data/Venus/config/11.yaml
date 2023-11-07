@@ -1,16 +1,16 @@
 cluster_scale:
-  vcHvQ: 2
-  vcJsw: 2
-  vcvGl: 2
+  vcHvQ: 10
+  vcJsw: 10
+  vcvGl: 10
 scheduler:
   vcHvQ: lucid-nogpu
   vcJsw: lucid-nogpu
   vcvGl: lucid-nogpu
 threshold:
-  vcHvQ: 0.4
-  vcJsw: 0.4
-  vcvGl: 0.4
+  vcHvQ: 0.25
+  vcJsw: 0.25
+  vcvGl: 0.25
 trace_scale:
-  vcHvQ: 5
-  vcJsw: 5
-  vcvGl: 5
+  vcHvQ: 10
+  vcJsw: 10
+  vcvGl: 10
