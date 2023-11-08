@@ -485,10 +485,11 @@ def profiler_config(experiment_name, vc_dict):
         vc_dict["vc8Gr"] -= 1
         vc_dict["vcefl"] -= 1
     elif cluster == "Venus": # why subtract 1 for only these two vc?
-        if "vc8Gr" in vc_dict:
-            vc_dict["vc8Gr"] -= 1
-        if "vcefl" in vc_dict:
-            vc_dict["vcefl"] -= 1
+        pass
+        # if "vc8Gr" in vc_dict:
+        #     vc_dict["vc8Gr"] -= 1
+        # if "vcefl" in vc_dict:
+        #     vc_dict["vcefl"] -= 1
         # vc_dict["vcYVn"] -= 1  # For elastic scaling
     elif cluster == "MLaas": # why subtract 1 for only these two vc?
         vc_dict["vc8Gr"] -= 1
@@ -523,6 +524,97 @@ def get_minimal_nodes(experiment_name):
        return {'vcEwI': 25, 'vcWoR': 25, 'vcHvQ': 25, 'vcvGl': 25, 'vc8Gr': 25+1, 'vcKeu': 25, 'vcKrE': 25, 'vcYVn': 25, 'vchbv': 25, 'vcLTP': 25, 'vchA3': 25, 'vcJsw': 25, 'vcefl': 25, 'vcvlY': 25, 'vcgkz': 13}
    else:
        raise NotImplementedError("The minimal nodes for other experiment are not provided currently.")
+
+
+def trace_scale_sample_median_gpu(trace, scale, vc_dict, sharescore_predict=None):
+    numeric_fields = ['gpu_num', 'submit_time', 'duration', 'speed', 'gpu_util',  'gmem_util', 'gmem', 'remain']
+    task_fields = ['model', 'batchsize', 'dataset', 'amp']
+    new_total_job_list = []
+    
+    if sharescore_predict is not None:
+        df = pd.read_csv(sharescore_predict)
+        
+        for job in trace.job_list:
+            if job["toskip"] == 0:
+                m, b, d, a = job["model"], job["batchsize"], job["dataset"], job["amp"]
+                info = df.query(" model == @m and batchsize == @b and dataset == @d and amp == @a")
+                job["sharescore"] = info["label"].values[0]
+        
+        # numeric_fields.append("sharescore")
+         
+
+    for vc in vc_dict.keys():
+        vc_trace = trace.vc_trace(vc)
+        job_list = vc_trace.job_list
+
+        job_skip = [job for job in job_list if job["toskip"] == 1]
+        job_no_skip = [job for job in job_list if job["toskip"] == 0]
+        new_job_no_skip = []
+        
+        print(f"vc: {vc} job nums before scale {len(job_skip)} + {len(job_no_skip)}")
+        for i in range(0, len(job_no_skip), scale[vc]):
+
+            base_job = job_no_skip[i]
+            values = []
+            if sharescore_predict is not None:
+                sharescore_values = []
+
+            total_service = 0 
+            total_job = 0 
+            for j in range(i, min(i+scale[vc], len(job_no_skip))):
+                value = []
+                for field in numeric_fields:
+                    value.append(job_no_skip[j][field])
+                
+                if sharescore_predict is not None:
+                    weight = job_no_skip[j]["duration"] * job_no_skip[j]["gpu_num"]
+                    sharescore_values.append(job_no_skip[j]["sharescore"] * weight)
+                value.append(job_no_skip[j]["sharescore"])
+                # keep service same 
+                total_service += job_no_skip[j]["duration"] * job_no_skip[j]["gpu_num"]
+                total_job += 1
+                values.append(value)
+                
+            mean_service = total_service / total_job
+            gpu_num = np.median(values, axis=0)[0]
+            
+            gpu_num = min(gpu_num, vc_dict[vc]*8)
+            
+            duration = max(1, int(mean_service / gpu_num))
+            # duration = np.mean(values, axis=0)[2]
+            mean_field = np.mean(values, axis=0)
+            if sharescore_predict is not None:
+                weight = gpu_num * duration
+                sharescore_median = int(np.median(sharescore_values) / weight)
+                if sharescore_median in sharescore_values:
+                    index = sharescore_values.index(sharescore_median)
+                else:
+                    index = np.where(np.array(sharescore_values) > sharescore_median)[0][0]
+
+                for field in task_fields:
+                    base_job[field] = job_no_skip[i+index][field]
+                
+            
+
+            base_job['gpu_num'] = int(gpu_num)
+            # duration = max(1, int(mean_service / gpu_num))
+            for i in range(1, len(numeric_fields)):
+                base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
+                if numeric_fields[i] == "duration":
+                    base_job[numeric_fields[i]] = duration
+            
+            new_job_no_skip.append(base_job)
+
+        new_total_job_list.extend(job_skip)
+        new_total_job_list.extend(new_job_no_skip)
+        print(f"vc: {vc} job nums after scale {len(job_skip)} + {len(new_job_no_skip)}")
+
+        
+        # vc_trace.job_list = job_list
+    new_trace = Trace() 
+    new_trace.job_list = new_total_job_list
+    new_trace.sort_jobs('submit_time')
+    return new_trace
 
 
 def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
@@ -575,12 +667,22 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
                 values.append(value)
                 
             mean_service = total_service / total_job
-            gpu_num = np.median(values, axis=0)[0]
-            duration = max(1, int(mean_service / gpu_num))
-            # duration = np.mean(values, axis=0)[2]
             mean_field = np.mean(values, axis=0)
+            
+            for i in range(1, len(numeric_fields)):
+                base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
+
+                    
+            gpu_num = max(int(mean_service / base_job['duration']), 1)
+
+            if gpu_num > vc_dict[vc]*8:
+                gpu_num = vc_dict[vc]*8
+                base_job['duration'] = max(int(mean_service / gpu_num), 1)
+                    
+            base_job['gpu_num'] = int(gpu_num)
+                    
             if sharescore_predict is not None:
-                weight = gpu_num * duration
+                weight = gpu_num * base_job['duration']
                 sharescore_median = int(np.median(sharescore_values) / weight)
                 if sharescore_median in sharescore_values:
                     index = sharescore_values.index(sharescore_median)
@@ -589,15 +691,7 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
 
                 for field in task_fields:
                     base_job[field] = job_no_skip[i+index][field]
-                
-            
 
-            base_job['gpu_num'] = int(gpu_num)
-            duration = max(1, int(mean_service / gpu_num))
-            for i in range(1, len(numeric_fields)):
-                base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
-                if numeric_fields[i] == "duration":
-                    base_job[numeric_fields[i]] = duration
             
             new_job_no_skip.append(base_job)
 
@@ -611,6 +705,10 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
     new_trace.job_list = new_total_job_list
     new_trace.sort_jobs('submit_time')
     return new_trace
+
+
+
+
 
 if __name__ == "__main__":
     files = os.listdir(f"log/Venus_Sept/all")

@@ -56,7 +56,9 @@ def main(args):
         vc_dict = {vc:vc_dict[vc] for vc in vc_filter}
 
         print(f"cluster num before scale {vc_dict}")
-        vc_dict = {k: max(int(v / cluster_scale_for_vc[k]), vc_minimal_nodes[k]) for k, v in vc_dict.items()}
+        # vc_dict = {k: max(int(v / cluster_scale_for_vc[k]), vc_minimal_nodes[k]) for k, v in vc_dict.items()}
+        vc_dict = {k: max(v // cluster_scale_for_vc[k], 1) for k, v in vc_dict.items()}
+        print(vc_dict)
         print(f"cluster num after scale {vc_dict}")
 
         trace_df = trace_df[trace_df['vc'].isin(vc_filter)]

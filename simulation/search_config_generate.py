@@ -5,7 +5,9 @@ import pandas as pd
 import os
 
 dataset = "Venus"
+# dataset = "Philly"
 vc_nums = f"./data/{dataset}/vc_config.csv"
+# config_dir = f"./data/{dataset}/config_full"
 config_dir = f"./data/{dataset}/config"
 
 if not os.path.exists(config_dir):
@@ -15,6 +17,7 @@ vc_df = pd.read_csv( vc_nums, index_col=0)
 vcs = vc_df.index.tolist()
 
 vc_filter = ["vcvGl", "vcHvQ", "vcJsw"]
+# vc_filter = vcs
 
 for vc in vc_filter:
     if vc not in vcs:
@@ -24,7 +27,7 @@ for vc in vc_filter:
 schedulers = ['lucid-fixed', 'lucid-continue', 'lucid-nogpu', 'lucid-alwaysgpu']
 # thresholds = [0.1, 0.2, 0.3, 0.4]
 thresholds = [0.25]
-scale = [1,2,5,10]
+scale = [1,2,4,5]
 
     
 
@@ -40,5 +43,5 @@ for i, (scheduler, scale, threshold) in enumerate(product(schedulers, scale, thr
                 "cluster_scale":cluster_scale
                 }
     
-    f = open(f"./data/{dataset}/config/{i}.yaml", 'w')
+    f = open(f"{config_dir}/{i}.yaml", 'w')
     yaml.dump(vc_config, f)

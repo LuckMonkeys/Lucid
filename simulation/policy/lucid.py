@@ -462,7 +462,7 @@ class Lucid(Policy):
                 if num_end_jobs >= (num_jobs - num_skip_jobs) * update_start:
                     self.obtain_colocate_analysis()
                     update_start += 0.1
-                    print(update_start)
+                    # print(update_start)
              
             # if self.time % 100 == 0:
             if self.adaptive_colocate == 0:  # Disable colocation

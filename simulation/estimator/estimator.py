@@ -200,7 +200,7 @@ class CombinedEstimator:
 class PhillyEstimator:
     def __init__(self, args):
         # if args.scheduler == "lucid":
-        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]:
+        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue", "search"]:
             self.data = pd.read_csv(f"./estimator/ebm/Philly_ebm.csv")
         else:
             self.data = pd.read_csv(f"./estimator/lgb/Philly_lgb.csv")

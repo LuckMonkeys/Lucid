@@ -1,7 +1,7 @@
 cluster_scale:
-  vcHvQ: 5
-  vcJsw: 5
-  vcvGl: 5
+  vcHvQ: 4
+  vcJsw: 4
+  vcvGl: 4
 scheduler:
   vcHvQ: lucid-fixed
   vcJsw: lucid-fixed
@@ -11,6 +11,6 @@ threshold:
   vcJsw: 0.25
   vcvGl: 0.25
 trace_scale:
-  vcHvQ: 5
-  vcJsw: 5
-  vcvGl: 5
+  vcHvQ: 4
+  vcJsw: 4
+  vcvGl: 4

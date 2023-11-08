@@ -4,11 +4,7 @@ from itertools import product
 import pandas as pd
 import os
 import numpy as np
-
-result_dir = "./log_search/vc_node_factor_1.0"
-config_dir = "./data/Venus/config" 
-dataset = "Venus_Sept"
-vcs = ["vcvGl", "vcHvQ", "vcJsw"]
+# from natsort import 
 
 def get_best_config_for_cluster(result_dir, config_dir, dataset, vcs):
     #get name of config: Venus_Sept_0 -> 0
@@ -56,7 +52,7 @@ def get_scale_down_results(result_dir, dataset, info, scales=4, exclude_profile_
 
     values = []
 
-    for name in configs_names:
+    for name in configs_names[:len(info)*len(scales)]:
             
         dir = os.path.join(result_dir, f"{dataset}_{name}") 
         if exclude_profile_gpu:
@@ -67,16 +63,25 @@ def get_scale_down_results(result_dir, dataset, info, scales=4, exclude_profile_
         jct_pd.columns = ['index', 'jct']
 
         values.append(jct_pd[jct_pd['index'] == "all"].values[0][1])
-        
+    # print(values) 
+    # values = values[:len(info)*len(scales)]
     df_dict = {"scales":scales}
     df_dict.update({f"{info[i]}":values[j:j+len(scales)] for i, j in enumerate(range(0, len(values), len(scales)))})
     # print(df_dict)
     df = pd.DataFrame.from_dict(df_dict)
+    # df.to_csv(f"scale_down_results.csv", index=False)
     
     print(df)
+    
+result_dir = "./log_search/vc_node_factor_1.0"
+# config_dir = "./data/Venus/config" 
+dataset = "Venus_Sept"
+# vcs = ["vcvGl", "vcHvQ", "vcJsw"]
+
 
 schedulers = ['lucid-fixed', 'lucid-continue', 'lucid-nogpu', 'lucid-alwaysgpu']
-scales = [1,2,5,10]
+scales = [1,2,4,5]
+# scales = [1,2,5,10]
 
 get_scale_down_results(result_dir, dataset, info=schedulers, scales=scales)
 

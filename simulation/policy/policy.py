@@ -98,16 +98,17 @@ class Policy:
 
     def check_future_cluster_throughput(self, metric='pred_gpu_job'):
         # import pdb; pdb.set_trace() 
-        if len(self.time_df) == 0:
+        time_df = self.time_df[self.time_df["time"] > self.time]
+        if len(time_df) == 0:
             return 10
         else:
-            self.time_df = self.time_df[self.time_df["time"] > self.time]
-            if len(self.time_df) >= 6:
+            # self.time_df = self.time_df[self.time_df["time"] > self.time]
+            if len(time_df) >= 6:
                 # return self.time_df.head(n=6)["pred_gpu_job"].mean()
-                return self.time_df.head(n=6)[metric].mean()
+                return time_df.head(n=6)[metric].mean()
             else:
                 # return self.time_df.head(n=6)[metric].mean()
-                return self.time_df[metric].mean()
+                return time_df[metric].mean()
 
     def ckpt_overhead(self, job):
         """Preemption Overhead Note
