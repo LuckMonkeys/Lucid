@@ -217,7 +217,7 @@ class PhillyEstimator:
 class MLaasEstimator:
     def __init__(self, args):
         # if args.scheduler == "lucid":
-        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue"]:
+        if args.scheduler in ["lucid", "lucid-alwaysgpu","lucid-nogpu", "lucid-node-scale", "lucid-fixed", "lucid-continue", "search"]:
             self.data = pd.read_csv(f"./estimator/ebm/MLaas_ebm.csv")
         else:
             self.data = pd.read_csv(f"./estimator/lgb/MLaas_lgb.csv")

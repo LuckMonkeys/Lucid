@@ -37,9 +37,36 @@ max_config_idx=15
 # for i in $(seq 0 $max_config_idx)
 for ((i=0; i<=max_config_idx; i+=4));
 do
-    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True &
-    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+1)).yaml" --filter_profile_job=True &
-    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+2)).yaml" --filter_profile_job=True &
-    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search" --search_config="./data/Venus/config/$((i+3)).yaml" --filter_profile_job=True&
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_venus" --search_config="./data/Venus/config/$i.yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_venus" --search_config="./data/Venus/config/$((i+1)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_venus" --search_config="./data/Venus/config/$((i+2)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Venus_Sept' --trace-dir="./data/Venus" --log-dir="./log_search_venus" --search_config="./data/Venus/config/$((i+3)).yaml" --filter_profile_job=True&
+    wait
+done
+
+for ((i=0; i<=max_config_idx; i+=4));
+do
+    python simulator.py -s search --vc_nodes_factor=0.8 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$i.yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=0.8 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+1)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=0.8 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+2)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=0.8 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+3)).yaml" --filter_profile_job=True&
+    wait
+done
+
+for ((i=0; i<=max_config_idx; i+=4));
+do
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$i.yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+1)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+2)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='Philly' --trace-dir="./data/Philly" --log-dir="./log_search_philly" --search_config="./data/Philly/config/$((i+3)).yaml" --filter_profile_job=True&
+    wait
+done
+
+for ((i=0; i<=max_config_idx; i+=4));
+do
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='MLaas' --trace-dir="./data/MLaas" --log-dir="./log_search_mlaas" --search_config="./data/MLaas/config/$i.yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='MLaas' --trace-dir="./data/MLaas" --log-dir="./log_search_mlaas" --search_config="./data/MLaas/config/$((i+1)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='MLaas' --trace-dir="./data/MLaas" --log-dir="./log_search_mlaas" --search_config="./data/MLaas/config/$((i+2)).yaml" --filter_profile_job=True &
+    python simulator.py -s search --vc_nodes_factor=1.0 --experiment-name='MLaas' --trace-dir="./data/MLaas" --log-dir="./log_search_mlaas" --search_config="./data/MLaas/config/$((i+3)).yaml" --filter_profile_job=True&
     wait
 done

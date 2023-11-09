@@ -1,4 +1,5 @@
 
+#%%
 import yaml
 from itertools import product
 import pandas as pd
@@ -79,13 +80,24 @@ dataset = "Venus_Sept"
 # vcs = ["vcvGl", "vcHvQ", "vcJsw"]
 
 
+#%%
+#### result for all datasets
 schedulers = ['lucid-fixed', 'lucid-continue', 'lucid-nogpu', 'lucid-alwaysgpu']
 scales = [1,2,4,5]
-# scales = [1,2,5,10]
-
+for dataset, dir_name in zip(['Venus_Sept', "Philly", "MLaas"], ["venus", "philly", "mlaas"]):
+    result_dir = f"./log_search_{dir_name}/vc_node_factor_1.0"
+    print(f"Dataset: {dataset} node factor 1.0")
+    get_scale_down_results(result_dir, dataset, info=schedulers, scales=scales)
+print("Dataset: Philly node factor 0.8") 
+result_dir = f"./log_search_philly/vc_node_factor_0.8"
+dataset="Philly"
 get_scale_down_results(result_dir, dataset, info=schedulers, scales=scales)
 
-
-
-    
+#### result for scale 1
+#%%
+schedulers = ['lucid-fixed', 'lucid-continue', 'lucid-nogpu', 'lucid-alwaysgpu', 'lucid']
+scales = [1]
+result_dir = "./log_search_test/vc_node_factor_0.8"
+dataset = "Philly"
+get_scale_down_results(result_dir, dataset, info=schedulers, scales=scales)
     

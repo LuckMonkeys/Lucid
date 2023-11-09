@@ -32,7 +32,6 @@ def main(args):
         scheduler_for_vc = search_config['scheduler']
         trace_scale_for_vc = search_config['trace_scale']
         cluster_scale_for_vc = search_config['cluster_scale']
-
         vc_filter = scheduler_for_vc.keys()
         
         
@@ -152,9 +151,10 @@ def main(args):
     # utils.simulate_vc(*all_args_list[2])
     # exit(0)
     
-    with multiprocessing.Pool(processes=process_num) as p:
-        results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
-        results = [result.get() for result in results]
+    if not args.analyze_only:
+        with multiprocessing.Pool(processes=process_num) as p:
+            results = [p.apply_async(utils.simulate_vc, args_list) for args_list in all_args_list]
+            results = [result.get() for result in results]
 
     if args.sweep:
         for policy in utils.get_sweep_schedulers():
@@ -168,7 +168,7 @@ def main(args):
             utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict, args.filter_profile_job, scheduler_for_vc)
         else:
             utils.cluster_concatenate(args.scheduler, args.placer, log_dir, args.trace_dir, vc_dict)
-            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict)
+            utils.cluster_analysis(args.placer, log_dir, args.trace_dir, vc_dict, args.filter_profile_job)
 
         """Fast query result"""
         sched_label = args.scheduler + "_consolidate"
@@ -231,6 +231,10 @@ if __name__ == "__main__":
 
     parser.add_argument("--search_config", type=str, default='',  help="The config for search paramters")
     parser.add_argument("--filter_profile_job", type=bool, default=False,  help="whether exclude the profile job in jct analysis")
+
+    parser.add_argument("--analyze_only", type=bool, default=False,  help="only analyze the result")
+    
+    
     
     args = parser.parse_args()
 

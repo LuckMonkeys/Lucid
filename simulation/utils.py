@@ -20,6 +20,7 @@ from policy import (
 )
 from profiler import LeastGPUFirstProfiler
 import numpy as np
+import random
 
 sys.path.append("..")
 
@@ -480,20 +481,20 @@ def profiler_config(experiment_name, vc_dict):
 
     # Basic Config
     scale, time, factor = profile_scale[cluster], profile_time[cluster], profile_factor[cluster]
-    if cluster == "Philly":
-        # vc_dict["philly"] -= scale
-        vc_dict["vc8Gr"] -= 1
-        vc_dict["vcefl"] -= 1
-    elif cluster == "Venus": # why subtract 1 for only these two vc?
-        pass
-        # if "vc8Gr" in vc_dict:
-        #     vc_dict["vc8Gr"] -= 1
-        # if "vcefl" in vc_dict:
-        #     vc_dict["vcefl"] -= 1
-        # vc_dict["vcYVn"] -= 1  # For elastic scaling
-    elif cluster == "MLaas": # why subtract 1 for only these two vc?
-        vc_dict["vc8Gr"] -= 1
-        vc_dict["vcefl"] -= 1
+    # if cluster == "Philly":
+    #     # vc_dict["philly"] -= scale
+    #     vc_dict["vc8Gr"] -= 1
+    #     vc_dict["vcefl"] -= 1
+    # elif cluster == "Venus": # why subtract 1 for only these two vc?
+    #     # pass
+    #     if "vc8Gr" in vc_dict:
+    #         vc_dict["vc8Gr"] -= 1
+    #     if "vcefl" in vc_dict:
+    #         vc_dict["vcefl"] -= 1
+    #     # vc_dict["vcYVn"] -= 1  # For elastic scaling
+    # elif cluster == "MLaas": # why subtract 1 for only these two vc?
+    #     vc_dict["vc8Gr"] -= 1
+    #     vc_dict["vcefl"] -= 1
     return vc_dict, scale, time, factor
 
 
@@ -643,16 +644,16 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
         new_job_no_skip = []
         
         print(f"vc: {vc} job nums before scale {len(job_skip)} + {len(job_no_skip)}")
-        for i in range(0, len(job_no_skip), scale[vc]):
+        for job_id in range(0, len(job_no_skip), scale[vc]):
 
-            base_job = job_no_skip[i]
+            base_job = job_no_skip[job_id]
             values = []
             if sharescore_predict is not None:
                 sharescore_values = []
 
             total_service = 0 
             total_job = 0 
-            for j in range(i, min(i+scale[vc], len(job_no_skip))):
+            for j in range(job_id, min(job_id+scale[vc], len(job_no_skip))):
                 value = []
                 for field in numeric_fields:
                     value.append(job_no_skip[j][field])
@@ -669,8 +670,8 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
             mean_service = total_service / total_job
             mean_field = np.mean(values, axis=0)
             
-            for i in range(1, len(numeric_fields)):
-                base_job[numeric_fields[i]] = type(base_job[numeric_fields[i]])(mean_field[i])
+            for field_id in range(1, len(numeric_fields)):
+                base_job[numeric_fields[field_id]] = type(base_job[numeric_fields[field_id]])(mean_field[field_id])
 
                     
             gpu_num = max(int(mean_service / base_job['duration']), 1)
@@ -682,16 +683,20 @@ def trace_scale_sample(trace, scale, vc_dict, sharescore_predict=None):
             base_job['gpu_num'] = int(gpu_num)
                     
             if sharescore_predict is not None:
+                sharescores = [value[-1] for value in values]
                 weight = gpu_num * base_job['duration']
                 sharescore_median = int(np.median(sharescore_values) / weight)
-                if sharescore_median in sharescore_values:
-                    index = sharescore_values.index(sharescore_median)
+                
+                sharescore_median = min (max(sharescore_median, 0), 2)
+
+                if sharescore_median in sharescores:
+                    sharescore_index = sharescores.index(sharescore_median)
                 else:
-                    index = np.where(np.array(sharescore_values) > sharescore_median)[0][0]
+                    sharescore_index = random.randint(0, len(sharescores)-1)
+                    # index = np.where(np.array(sharescores) > sharescore_median)[0][0]
 
                 for field in task_fields:
-                    base_job[field] = job_no_skip[i+index][field]
-
+                    base_job[field] = job_no_skip[job_id+sharescore_index][field]
             
             new_job_no_skip.append(base_job)
 

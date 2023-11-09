@@ -1,16 +1,64 @@
 cluster_scale:
+  vc8Gr: 2
+  vcEwI: 2
   vcHvQ: 2
   vcJsw: 2
+  vcKeu: 2
+  vcKrE: 2
+  vcLTP: 2
+  vcWoR: 2
+  vcYVn: 2
+  vcefl: 2
+  vcgkz: 2
+  vchA3: 2
+  vchbv: 2
   vcvGl: 2
+  vcvlY: 2
 scheduler:
+  vc8Gr: lucid-continue
+  vcEwI: lucid-continue
   vcHvQ: lucid-continue
   vcJsw: lucid-continue
+  vcKeu: lucid-continue
+  vcKrE: lucid-continue
+  vcLTP: lucid-continue
+  vcWoR: lucid-continue
+  vcYVn: lucid-continue
+  vcefl: lucid-continue
+  vcgkz: lucid-continue
+  vchA3: lucid-continue
+  vchbv: lucid-continue
   vcvGl: lucid-continue
+  vcvlY: lucid-continue
 threshold:
+  vc8Gr: 0.25
+  vcEwI: 0.25
   vcHvQ: 0.25
   vcJsw: 0.25
+  vcKeu: 0.25
+  vcKrE: 0.25
+  vcLTP: 0.25
+  vcWoR: 0.25
+  vcYVn: 0.25
+  vcefl: 0.25
+  vcgkz: 0.25
+  vchA3: 0.25
+  vchbv: 0.25
   vcvGl: 0.25
+  vcvlY: 0.25
 trace_scale:
+  vc8Gr: 2
+  vcEwI: 2
   vcHvQ: 2
   vcJsw: 2
+  vcKeu: 2
+  vcKrE: 2
+  vcLTP: 2
+  vcWoR: 2
+  vcYVn: 2
+  vcefl: 2
+  vcgkz: 2
+  vchA3: 2
+  vchbv: 2
   vcvGl: 2
+  vcvlY: 2

@@ -3,9 +3,13 @@ import yaml
 from itertools import product
 import pandas as pd
 import os
+import sys
+
+full_vc = sys.argv[1]
 
 dataset = "Venus"
 # dataset = "Philly"
+# dataset = "MLaas"
 vc_nums = f"./data/{dataset}/vc_config.csv"
 # config_dir = f"./data/{dataset}/config_full"
 config_dir = f"./data/{dataset}/config"
@@ -17,7 +21,10 @@ vc_df = pd.read_csv( vc_nums, index_col=0)
 vcs = vc_df.index.tolist()
 
 vc_filter = ["vcvGl", "vcHvQ", "vcJsw"]
-# vc_filter = vcs
+
+if full_vc is not None:
+    if full_vc == "full":
+        vc_filter = vcs
 
 for vc in vc_filter:
     if vc not in vcs:

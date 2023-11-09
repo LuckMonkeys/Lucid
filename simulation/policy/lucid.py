@@ -450,12 +450,12 @@ class Lucid(Policy):
             """4. Allocate Job"""
             que_ls = self.que_list.copy()
             
-            if self.time % 100 == 0:
+            if  (self.time - self.start_ts) % 100 == 0:
                 # import pdb; pdb.set_trace() 
                 self.adaptive_colocate = self.check_pas()
             
 
-            # if self.continue_learning_colocate_analysis and self.time>0 and self.time % 10000 == 0:
+            # if self.continue_learning_colocate_analysis and self.time>0 and  (self.time - self.start_ts) % 10000 == 0:
             if self.continue_learning_colocate_analysis and self.time>0:
     
                 num_end_jobs = len([job for job in self.trace.job_list if job["status"] == "end" and job["toskip"] == 0])
@@ -464,7 +464,7 @@ class Lucid(Policy):
                     update_start += 0.1
                     # print(update_start)
              
-            # if self.time % 100 == 0:
+            # if  (self.time - self.start_ts) % 100 == 0:
             if self.adaptive_colocate == 0:  # Disable colocation
                 for job in que_ls:
                     if self.job_placer(job):
@@ -489,7 +489,7 @@ class Lucid(Policy):
                             self.job_allocate_info_update(job)
 
             """Echo Profiler Scaling"""
-            if self.vc_echo_scaling and self.time % 10 == 0 and self.time in self.scaling_time_list:
+            if self.vc_echo_scaling and  (self.time - self.start_ts) % 10 == 0 and self.time in self.scaling_time_list:
                 scaling_num = (
                     -1 * self.profile_scaling_df[self.profile_scaling_df["time"] == self.time]["scaling_num"].values[0]
                 )
@@ -497,11 +497,11 @@ class Lucid(Policy):
                 self._vc.update_vc_node(change_node_num=scaling_num)
 
             """5. Log & Result Recorder"""
-            if self.time % 10000 == 0:
+            if  (self.time - self.start_ts) % 10000 == 0:
                 self.runtime_log()
 
             # Sample Cluster State Every Minute
-            if self.time % 60 == 0:
+            if  (self.time - self.start_ts) % 60 == 0:
                 self.seq_recorder()
 
             self.time += delta
